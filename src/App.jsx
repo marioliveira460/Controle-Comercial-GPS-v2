@@ -1063,7 +1063,11 @@ const SecaoEconomico = ({ dados, filtros }) => {
       {grupos.map(([grupo, rows]) => {
         const gAtual = rows.reduce((s, d) => s + num(d.valorAtual), 0);
         const gFinal = rows.reduce((s, d) => s + num(d.valorFinal), 0);
-        const gGanho = gFinal - gAtual;
+        const concluidos = rows.filter(d => d.dataAprov && d.dataAprov.trim() !== "");
+        const gGanho = concluidos.reduce((s, d) => {
+          const vf = num(d.valorFinal); const va = num(d.valorAtual);
+          return s + (vf && va ? vf - va : 0);
+        }, 0);
         const gPct = gAtual > 0 ? (gGanho / gAtual) * 100 : 0;
         const aberto = expandido[grupo] !== false;
         return (
@@ -1076,7 +1080,7 @@ const SecaoEconomico = ({ dados, filtros }) => {
                 {[
                   { l: "Contrato Atual", v: brlFmt(gAtual), c: C.cinzaMedio },
                   { l: "Valor Final", v: brlFmt(gFinal), c: C.verde },
-                  { l: "Ganho", v: brlFmt(gGanho), c: gGanho >= 0 ? C.verde : C.vermelho },
+                  { l: "Ganho (concluídos)", v: concluidos.length ? brlFmt(gGanho) : "—", c: gGanho >= 0 ? C.verde : C.vermelho },
                   { l: "Reajuste", v: `${gPct.toFixed(2).replace(".", ",")}%`, c: C.laranja },
                 ].map(({ l, v, c }) => (
                   <div key={l}>
@@ -1100,8 +1104,9 @@ const SecaoEconomico = ({ dados, filtros }) => {
                     {rows.map((row, i) => {
                       const vAtual = num(row.valorAtual);
                       const vFinal = num(row.valorFinal);
-                      const ganho = vFinal - vAtual;
-                      const pct = vAtual > 0 ? (ganho / vAtual) * 100 : 0;
+                      const concluido = row.dataAprov && row.dataAprov.trim() !== "";
+                      const ganho = concluido && vFinal && vAtual ? vFinal - vAtual : null;
+                      const pct = vAtual > 0 && vFinal > 0 ? ((vFinal - vAtual) / vAtual) * 100 : 0;
                       return (
                         <tr key={row.cr + i} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
                           <td style={{ padding: "7px 12px", color: C.cinzaMedio, fontFamily: "monospace", fontSize: 11 }}>{row.cr}</td>
@@ -1110,9 +1115,9 @@ const SecaoEconomico = ({ dados, filtros }) => {
                           <td style={{ padding: "7px 12px", color: C.cinzaEscuro, fontWeight: 500 }}>{row.gerente}</td>
                           <td style={{ padding: "7px 12px" }}><Badge label={row.tipo || "—"} color={TIPO_COR[row.tipo] || C.cinzaMedio} bg={TIPO_BG[row.tipo] || C.azulClaro} /></td>
                           <td style={{ padding: "7px 12px", color: C.cinzaMedio }}>{brlFmt(vAtual)}</td>
-                          <td style={{ padding: "7px 12px", color: C.verde, fontWeight: 600 }}>{brlFmt(vFinal)}</td>
-                          <td style={{ padding: "7px 12px", color: ganho >= 0 ? C.verde : C.vermelho, fontWeight: 600 }}>{brlFmt(ganho)}</td>
-                          <td style={{ padding: "7px 12px", color: C.laranja, fontWeight: 700 }}>{pct.toFixed(2).replace(".", ",")}%</td>
+                          <td style={{ padding: "7px 12px", color: C.verde, fontWeight: 600 }}>{vFinal ? brlFmt(vFinal) : "—"}</td>
+                          <td style={{ padding: "7px 12px", color: ganho !== null ? C.verde : C.cinzaClaro, fontWeight: 600 }}>{ganho !== null ? brlFmt(ganho) : "—"}</td>
+                          <td style={{ padding: "7px 12px", color: C.laranja, fontWeight: 700 }}>{vFinal && vAtual ? `${pct.toFixed(2).replace(".", ",")}%` : "—"}</td>
                         </tr>
                       );
                     })}
