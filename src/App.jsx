@@ -481,10 +481,26 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
               <span style={{ color: C.cinzaClaro, fontSize: 10 }}>{aberto ? "▼" : "▶"}</span>
               <span style={{ fontWeight: 700, color: C.cinzaEscuro, fontSize: 13 }}>{grupo}</span>
               <span style={{ fontSize: 11, color: C.cinzaClaro, fontWeight: 400 }}>{rows.length} contrato{rows.length !== 1 ? "s" : ""}</span>
-              <div style={{ marginLeft: "auto", display: "flex", gap: 5, alignItems: "center" }}>
-                {temPerdido && <Badge label="Negócio Perdido" color={C.vermelho} bg={C.vermelhoClaro} />}
-                {temConcluido && !temPerdido && <Badge label="Concluído" color={C.verde} bg={C.verdeClaro} />}
-                {tiposGrupo.map(t => <Badge key={t} label={t} color={TIPO_COR[t] || C.cinzaMedio} bg={TIPO_BG[t] || C.azulClaro} />)}
+              <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                {Object.entries(
+                  rows.reduce((acc, r) => {
+                    const st = r.status || statusTemporal(r) || "Sem Status";
+                    acc[st] = (acc[st] || 0) + 1;
+                    return acc;
+                  }, {})
+                ).sort((a, b) => b[1] - a[1]).map(([st, qtd]) => {
+                  const cor = STATUS_COR[st] || { color: C.cinzaMedio, bg: "#f0f0f0" };
+                  return (
+                    <span key={st} style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      padding: "2px 8px", borderRadius: 4,
+                      background: cor.bg, border: `1px solid ${cor.color}30`,
+                      fontSize: 11, color: cor.color, fontWeight: 600, whiteSpace: "nowrap"
+                    }}>
+                      {st} <span style={{ fontWeight: 800 }}>{qtd}</span>
+                    </span>
+                  );
+                })}
               </div>
             </div>
             {aberto && (
