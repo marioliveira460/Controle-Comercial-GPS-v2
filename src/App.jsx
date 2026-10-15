@@ -774,15 +774,6 @@ const SecaoMatriz = ({ dados }) => {
             >
               <span style={{ fontSize: 13, color: C.azul, transition: "transform 0.15s", display: "inline-block", transform: aberto ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
               <span style={{ fontWeight: 700, fontSize: 14, color: C.cinzaEscuro, flex: 1 }}>{grupo}</span>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {indices.slice(0, 3).map(idx => (
-                  <span key={idx} style={{
-                    fontSize: 11, padding: "2px 8px", borderRadius: 4,
-                    background: C.azulClaro, color: C.azul, border: `1px solid ${C.azul}30`,
-                    fontWeight: 600, whiteSpace: "nowrap",
-                  }}>{idx}</span>
-                ))}
-              </div>
               <span style={{ fontSize: 12, color: C.cinzaClaro, marginLeft: 8, whiteSpace: "nowrap" }}>{crs.length} CR{crs.length !== 1 ? "s" : ""}</span>
             </div>
 
