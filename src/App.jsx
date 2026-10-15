@@ -663,6 +663,197 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
   );
 };
 
+// ─── Seção Visão do Cliente ──────────────────────────────────────────────────
+const SecaoClientes = ({ dados }) => {
+  const [justificativas, setJustificativas] = useState({});
+  const [editando, setEditando] = useState(null);
+  const [textoEdit, setTextoEdit] = useState("");
+
+  const hoje = new Date();
+
+  const clientes = useMemo(() => {
+    const map = {};
+    dados.forEach(d => {
+      const g = d.grupoCliente || "Sem Grupo";
+      if (!map[g]) map[g] = { grupo: g, crs: [] };
+      map[g].crs.push(d);
+    });
+
+    return Object.values(map).map(({ grupo, crs }) => {
+      const concluidos = crs.filter(d => parseData(d.dataAprov));
+      const emAberto = crs.filter(d => parseData(d.inicioNeg) && !parseData(d.dataAprov));
+
+      // Tempo médio dos concluídos
+      const tempos = concluidos
+        .map(d => diasEntre(parseData(d.inicioNeg), parseData(d.dataAprov)))
+        .filter(v => v !== null && v >= 0);
+      const mediaDias = tempos.length > 0 ? Math.round(tempos.reduce((a, b) => a + b, 0) / tempos.length) : null;
+
+      // Maior tempo em aberto
+      const maiorAberto = emAberto.length > 0
+        ? Math.max(...emAberto.map(d => diasEntre(parseData(d.inicioNeg), hoje)).filter(v => v !== null))
+        : null;
+
+      // CRs individuais com tempo
+      const detalhes = crs
+        .filter(d => parseData(d.inicioNeg))
+        .map(d => {
+          const inicio = parseData(d.inicioNeg);
+          const aprov = parseData(d.dataAprov);
+          const dias = diasEntre(inicio, aprov || hoje);
+          return { cr: d.cr, descri: d.descri, mes: d.mes, gerente: d.gerente, dias, concluido: !!aprov, status: d.status || statusTemporal(d) || "—" };
+        })
+        .sort((a, b) => b.dias - a.dias);
+
+      // Semáforo do grupo baseado no maior tempo em aberto ou média
+      const ref = maiorAberto ?? mediaDias ?? 0;
+      const nivel = ref >= 60 ? "critico" : ref >= 30 ? "atencao" : "ok";
+
+      return { grupo, crs: detalhes, total: crs.length, concluidos: concluidos.length, emAberto: emAberto.length, mediaDias, maiorAberto, nivel };
+    }).sort((a, b) => {
+      const ord = { critico: 0, atencao: 1, ok: 2 };
+      return ord[a.nivel] - ord[b.nivel] || a.grupo.localeCompare(b.grupo);
+    });
+  }, [dados]);
+
+  const semCor = { critico: { color: C.vermelho, bg: C.vermelhoClaro, label: "Crítico" }, atencao: { color: C.laranja, bg: C.laranjaClaro, label: "Atenção" }, ok: { color: C.verde, bg: C.verdeClaro, label: "Ok" } };
+  const [expandido, setExpandido] = useState({});
+
+  const salvarJust = (grupo) => {
+    setJustificativas(j => ({ ...j, [grupo]: textoEdit }));
+    setEditando(null);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* Legenda */}
+      <div style={{ display: "flex", gap: 16, padding: "10px 16px", background: "#fff", borderRadius: 8, border: `1px solid ${C.borda}`, alignItems: "center" }}>
+        <span style={{ fontSize: 11, color: C.cinzaClaro, fontWeight: 500 }}>Semáforo baseado no maior tempo em negociação aberta:</span>
+        {[["critico","≥ 60 dias"],["atencao","30–59 dias"],["ok","< 30 dias"]].map(([n, l]) => (
+          <div key={n} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: semCor[n].color, boxShadow: `0 0 0 3px ${semCor[n].bg}` }} />
+            <span style={{ fontSize: 11, color: C.cinzaMedio }}><b>{semCor[n].label}</b> {l}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Cards por cliente */}
+      {clientes.map(({ grupo, crs, total, concluidos, emAberto, mediaDias, maiorAberto, nivel }) => {
+        const s = semCor[nivel];
+        const aberto = expandido[grupo] !== false;
+        const just = justificativas[grupo] || "";
+
+        return (
+          <div key={grupo} style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.borda}`, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", borderLeft: `4px solid ${s.color}` }}>
+            {/* Cabeçalho */}
+            <div onClick={() => setExpandido(p => ({ ...p, [grupo]: !aberto }))}
+              style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", userSelect: "none" }}>
+              {/* Semáforo */}
+              <div style={{ width: 14, height: 14, borderRadius: "50%", background: s.color, flexShrink: 0, boxShadow: `0 0 0 4px ${s.bg}` }} />
+              <span style={{ fontWeight: 700, color: C.cinzaEscuro, fontSize: 13, flex: 1 }}>{grupo}</span>
+              {/* Stats rápidos */}
+              <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 10, color: C.cinzaClaro }}>Total CRs</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.cinzaEscuro }}>{total}</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 10, color: C.cinzaClaro }}>Concluídos</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.verde }}>{concluidos}</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 10, color: C.cinzaClaro }}>Em aberto</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: emAberto > 0 ? s.color : C.cinzaMedio }}>{emAberto}</div>
+                </div>
+                {mediaDias !== null && (
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: C.cinzaClaro }}>Média concl.</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.cinzaMedio }}>{mediaDias}d</div>
+                  </div>
+                )}
+                {maiorAberto !== null && (
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: C.cinzaClaro }}>Maior aberto</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: s.color }}>{maiorAberto}d</div>
+                  </div>
+                )}
+              </div>
+              <span style={{ color: C.cinzaClaro, fontSize: 10, marginLeft: 8 }}>{aberto ? "▼" : "▶"}</span>
+            </div>
+
+            {aberto && (
+              <div style={{ borderTop: `1px solid ${C.borda}` }}>
+                {/* Justificativa */}
+                <div style={{ padding: "10px 16px", background: "#fafbfc", borderBottom: `1px solid ${C.borda}` }}>
+                  <div style={{ fontSize: 11, color: C.cinzaClaro, marginBottom: 4, fontWeight: 500 }}>Observação do cliente</div>
+                  {editando === grupo ? (
+                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                      <textarea
+                        autoFocus value={textoEdit}
+                        onChange={e => setTextoEdit(e.target.value)}
+                        placeholder="Ex: Setor financeiro trata reajuste separado da diretoria operacional. Aprovações demoram pois passam por comitê..."
+                        style={{ flex: 1, fontSize: 12, color: C.cinzaEscuro, padding: "7px 10px", borderRadius: 6, border: `1.5px solid ${C.azul}`, resize: "vertical", minHeight: 60, outline: "none", fontFamily: "inherit" }}
+                      />
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <button onClick={() => salvarJust(grupo)} style={{ padding: "5px 12px", borderRadius: 5, background: C.azul, color: "#fff", border: "none", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Salvar</button>
+                        <button onClick={() => setEditando(null)} style={{ padding: "5px 12px", borderRadius: 5, background: "#f0f0f0", color: C.cinzaMedio, border: "none", fontSize: 12, cursor: "pointer" }}>Cancelar</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div onClick={() => { setEditando(grupo); setTextoEdit(just); }}
+                      style={{ fontSize: 12, color: just ? C.cinzaEscuro : C.cinzaClaro, padding: "6px 10px", borderRadius: 6, border: `1px dashed ${C.borda}`, cursor: "pointer", minHeight: 32, background: "#fff", transition: "border-color 0.15s" }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = C.azul}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = C.borda}>
+                      {just || <span style={{ opacity: 0.5 }}>Clique para adicionar observação sobre esse cliente… ✏</span>}
+                    </div>
+                  )}
+                </div>
+
+                {/* Tabela de CRs */}
+                {crs.length > 0 && (
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          {["CR","Descrição","Mês","Gerente","Status","Dias"].map(h => (
+                            <th key={h} style={{ padding: "7px 12px", textAlign: "left", color: C.cinzaClaro, fontWeight: 600, fontSize: 11, whiteSpace: "nowrap", borderBottom: `1px solid ${C.borda}` }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {crs.map((row, i) => {
+                          const ds = row.dias >= 60 ? { color: C.vermelho } : row.dias >= 30 ? { color: C.laranja } : { color: C.verde };
+                          const stCor = STATUS_COR[row.status] || { color: C.cinzaMedio, bg: "#f0f0f0" };
+                          return (
+                            <tr key={row.cr + i} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                              <td style={{ padding: "7px 12px", color: C.cinzaMedio, fontFamily: "monospace", fontSize: 11 }}>{row.cr}</td>
+                              <td style={{ padding: "7px 12px", color: C.cinzaEscuro, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descri}</td>
+                              <td style={{ padding: "7px 12px", color: C.cinzaMedio }}>{row.mes}</td>
+                              <td style={{ padding: "7px 12px", color: C.cinzaEscuro, fontWeight: 500 }}>{row.gerente}</td>
+                              <td style={{ padding: "7px 12px" }}>
+                                <span style={{ padding: "2px 8px", borderRadius: 4, background: stCor.bg, color: stCor.color, fontSize: 11, fontWeight: 600 }}>{row.status}</span>
+                              </td>
+                              <td style={{ padding: "7px 12px" }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: ds.color }}>
+                                  {row.concluido ? "✓ " : ""}{row.dias}d
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 // ─── Seção Controle Econômico ─────────────────────────────────────────────────
 const SecaoEconomico = ({ dados, filtros }) => {
   const { filtroGerente, filtroMes, filtroTipo } = filtros;
@@ -824,10 +1015,12 @@ export default function App() {
   const SECOES = [
     { id: "gerencial", label: "Gestão de Reajuste", icon: "📋" },
     { id: "economico", label: "Controle Econômico", icon: "📈" },
+    { id: "clientes",  label: "Visão do Cliente",   icon: "🚦" },
   ];
   const TITULO_HEADER = {
     "gerencial": "Gestão de Reajustes Contratuais",
     "economico": "Controle Econômico",
+    "clientes":  "Visão do Cliente",
   };
   const secaoAtual = SECOES.find(s => s.id === secao);
 
@@ -1012,8 +1205,10 @@ export default function App() {
             </div>
           ) : secao === "gerencial" ? (
             <SecaoGerencial dados={dados} onUpdate={onUpdate} setToast={setToast} filtros={filtros} />
-          ) : (
+          ) : secao === "economico" ? (
             <SecaoEconomico dados={dados} filtros={filtros} />
+          ) : (
+            <SecaoClientes dados={dados} />
           )}
         </div>
       </div>
