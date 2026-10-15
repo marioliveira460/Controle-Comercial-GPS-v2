@@ -28,6 +28,8 @@ const C = {
   roxoClaro:   "#f0ebfb",
 };
 
+const SERIF = "'Georgia', 'Times New Roman', serif";
+
 const TIPO_COR = {
   "Reajuste":            C.azul,
   "DT":                  C.roxo,
@@ -584,11 +586,10 @@ const SecaoEconomico = ({ dados, filtros }) => {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
         <KpiCard label="Valor Total dos Contratos" value={brlFmt(totalAtual)} color={C.azul} />
         <KpiCard label="Valor Final / Pleito" value={brlFmt(totalFinal)} color={C.verde} />
         <KpiCard label="Ganho Estimado" value={brlFmt(totalGanho)} color={totalGanho >= 0 ? C.verde : C.vermelho} />
-        <KpiCard label="Reajuste Médio" value={`${pctGlobal.toFixed(2).replace(".", ",")}%`} color={C.laranja} />
       </div>
       {grupos.map(([grupo, rows]) => {
         const gAtual = rows.reduce((s, d) => s + num(d.valorAtual), 0);
@@ -735,11 +736,11 @@ export default function App() {
       }}>
         {/* Logo + pin */}
         <div style={{
+          position: "relative",
           padding: "16px 12px",
           borderBottom: `1px solid ${C.borda}`,
           background: "#fff",
-          display: "flex", alignItems: "center",
-          gap: 10, justifyContent: menuAberto ? "space-between" : "center",
+          display: "flex", alignItems: "center", justifyContent: "center",
           minHeight: 64
         }}>
           {menuAberto && <LogoInHaus />}
@@ -747,6 +748,8 @@ export default function App() {
             onClick={() => setMenuAberto(v => !v)}
             title={menuAberto ? "Recolher" : "Expandir"}
             style={{
+              position: menuAberto ? "absolute" : "static",
+              right: menuAberto ? 10 : undefined,
               background: C.azulClaro, border: `1px solid ${C.borda}`,
               borderRadius: 6, color: C.azul, cursor: "pointer",
               width: 28, height: 28, flexShrink: 0,
@@ -771,7 +774,8 @@ export default function App() {
               borderRadius: 7, width: "100%", marginBottom: 2,
               background: secao === id ? "rgba(255,255,255,0.15)" : "transparent",
               border: "none", color: secao === id ? "#fff" : "rgba(255,255,255,0.65)",
-              cursor: "pointer", fontSize: 13, fontWeight: secao === id ? 600 : 400,
+              cursor: "pointer", fontSize: 13, fontWeight: secao === id ? 600 : 300,
+              fontFamily: SERIF, letterSpacing: "0.03em",
               transition: "all 0.15s", whiteSpace: "nowrap", overflow: "hidden",
               borderLeft: menuAberto ? (secao === id ? "3px solid rgba(255,255,255,0.8)" : "3px solid transparent") : "none",
             }}>
@@ -789,7 +793,7 @@ export default function App() {
             display: "flex", alignItems: "center", justifyContent: menuAberto ? "flex-start" : "center",
             gap: 8, padding: menuAberto ? "7px 12px" : "7px 0",
             borderRadius: 6, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)",
-            color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500, width: "100%"
+            color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 300, fontFamily: SERIF, letterSpacing: "0.03em", width: "100%"
           }}>
             <span>↻</span>{menuAberto && <span>Atualizar dados</span>}
           </button>
@@ -822,7 +826,7 @@ export default function App() {
           background: C.azul
         }}>
           {/* Título centralizado */}
-          <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#fff", flex: 1, textAlign: "center" }}>
+          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 300, color: "#fff", flex: 1, textAlign: "center", letterSpacing: "0.06em", fontFamily: "'Georgia', 'Times New Roman', serif" }}>
             {TITULO_HEADER[secao]}
           </h1>
 
@@ -841,7 +845,7 @@ export default function App() {
                   padding: "6px 12px", borderRadius: 7, cursor: "pointer",
                   background: filtrosAberto ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.14)",
                   border: `1px solid ${temFiltro ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.25)"}`,
-                  color: "#fff", fontSize: 12, fontWeight: 500, transition: "all 0.15s"
+                  color: "#fff", fontSize: 12, fontWeight: 300, fontFamily: SERIF, letterSpacing: "0.04em", transition: "all 0.15s"
                 }}
               >
                 {/* Ícone parâmetros (sliders) */}
