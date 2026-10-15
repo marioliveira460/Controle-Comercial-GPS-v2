@@ -149,13 +149,19 @@ const parseGerencial = (values) => {
   const iAprov = idx("Data de Aprovação");
   const iInfo = idx("Informações");
   const iObs = idx("Observações");
+  const iIndice = idx("Índice Contratual");
+  const iDataBase = idx("Data Base CCT");
+  const iProdut = idx("Cláusula de Produtividade");
+  const iSind = idx("Sindicato");
 
   return rows.filter(r => r && r[iCR]).map((r, i) => ({
     _idx: i + 1,
     mes: r[iMes] || "",
+    mesVigencia: r[iMes] || "",
     grupoCliente: r[iGrupo] || "",
     cr: String(r[iCR] || "").trim(),
     descri: r[iDescri] || "",
+    descricaoCR: r[iDescri] || "",
     gerente: r[iGerente] || "",
     status: r[iStatus] || "",
     tipo: r[iTipo] || "",
@@ -167,6 +173,10 @@ const parseGerencial = (values) => {
     dataAprov: r[iAprov] ?? "",
     info: r[iInfo] || "",
     obs: r[iObs] || "",
+    indiceContratual: r[iIndice] || "",
+    dataBaseCCT: r[iDataBase] || "",
+    clausulaProdutividade: r[iProdut] ?? "",
+    sindicato: r[iSind] || "",
   }));
 };
 
@@ -664,6 +674,174 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
 };
 
 // ─── Seção Visão do Cliente ──────────────────────────────────────────────────
+// ─── Seção Matriz de Reajuste ────────────────────────────────────────────────
+const SecaoMatriz = ({ dados }) => {
+  const [busca, setBusca] = useState("");
+  const [grupoAberto, setGrupoAberto] = useState({});
+
+  const grupos = useMemo(() => {
+    const map = {};
+    dados.forEach(d => {
+      const g = d.grupoCliente || "Sem Grupo";
+      if (!map[g]) map[g] = [];
+      map[g].push(d);
+    });
+    return Object.entries(map)
+      .map(([grupo, crs]) => ({ grupo, crs: crs.sort((a, b) => String(a.cr).localeCompare(String(b.cr))) }))
+      .sort((a, b) => a.grupo.localeCompare(b.grupo));
+  }, [dados]);
+
+  const filtrados = useMemo(() => {
+    if (!busca.trim()) return grupos;
+    const q = busca.toLowerCase();
+    return grupos
+      .map(({ grupo, crs }) => ({
+        grupo,
+        crs: crs.filter(d =>
+          String(d.cr || "").toLowerCase().includes(q) ||
+          String(d.descricaoCR || "").toLowerCase().includes(q) ||
+          String(d.grupoCliente || "").toLowerCase().includes(q) ||
+          String(d.indiceContratual || "").toLowerCase().includes(q) ||
+          String(d.sindicato || "").toLowerCase().includes(q)
+        )
+      }))
+      .filter(({ crs }) => crs.length > 0);
+  }, [grupos, busca]);
+
+  const toggleGrupo = (g) => setGrupoAberto(v => ({ ...v, [g]: !v[g] }));
+  const todosAbertos = filtrados.every(({ grupo }) => grupoAberto[grupo] !== false);
+
+  const thStyle = {
+    padding: "8px 12px", fontSize: 11, fontWeight: 700, color: C.cinzaClaro,
+    textAlign: "center", letterSpacing: "0.05em", borderBottom: `2px solid ${C.borda}`,
+    background: "#f8fafb", whiteSpace: "nowrap",
+  };
+  const tdStyle = (align = "center") => ({
+    padding: "9px 12px", fontSize: 13, color: C.cinzaMedio,
+    borderBottom: `1px solid ${C.borda}`, textAlign: align, verticalAlign: "middle",
+  });
+
+  return (
+    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Cabeçalho */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <input
+          value={busca}
+          onChange={e => setBusca(e.target.value)}
+          placeholder="Buscar cliente, CR, índice, sindicato…"
+          style={{
+            flex: 1, maxWidth: 400, padding: "8px 14px", borderRadius: 8,
+            border: `1px solid ${C.borda}`, fontSize: 13, outline: "none",
+            background: "#fff", color: C.cinzaEscuro,
+          }}
+        />
+        <button
+          onClick={() => {
+            const next = !todosAbertos;
+            const state = {};
+            filtrados.forEach(({ grupo }) => { state[grupo] = next; });
+            setGrupoAberto(state);
+          }}
+          style={{
+            padding: "8px 16px", borderRadius: 8, border: `1px solid ${C.borda}`,
+            background: "#fff", color: C.cinzaMedio, cursor: "pointer", fontSize: 12,
+            fontFamily: SERIF,
+          }}
+        >
+          {todosAbertos ? "Recolher todos" : "Expandir todos"}
+        </button>
+        <span style={{ fontSize: 12, color: C.cinzaClaro, marginLeft: "auto" }}>
+          {filtrados.length} grupo{filtrados.length !== 1 ? "s" : ""} · {filtrados.reduce((s, g) => s + g.crs.length, 0)} CRs
+        </span>
+      </div>
+
+      {/* Grupos */}
+      {filtrados.map(({ grupo, crs }) => {
+        const aberto = grupoAberto[grupo] !== false;
+        // Unique index values for this group
+        const indices = [...new Set(crs.map(d => d.indiceContratual).filter(Boolean))];
+        return (
+          <div key={grupo} style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.borda}`, overflow: "hidden" }}>
+            {/* Header do grupo */}
+            <div
+              onClick={() => toggleGrupo(grupo)}
+              style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
+                cursor: "pointer", borderBottom: aberto ? `1px solid ${C.borda}` : "none",
+                background: aberto ? C.azulClaro : "#f8fafb",
+                transition: "background 0.15s",
+              }}
+            >
+              <span style={{ fontSize: 13, color: C.azul, transition: "transform 0.15s", display: "inline-block", transform: aberto ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+              <span style={{ fontWeight: 700, fontSize: 14, color: C.cinzaEscuro, flex: 1 }}>{grupo}</span>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {indices.slice(0, 3).map(idx => (
+                  <span key={idx} style={{
+                    fontSize: 11, padding: "2px 8px", borderRadius: 4,
+                    background: C.azulClaro, color: C.azul, border: `1px solid ${C.azul}30`,
+                    fontWeight: 600, whiteSpace: "nowrap",
+                  }}>{idx}</span>
+                ))}
+              </div>
+              <span style={{ fontSize: 12, color: C.cinzaClaro, marginLeft: 8, whiteSpace: "nowrap" }}>{crs.length} CR{crs.length !== 1 ? "s" : ""}</span>
+            </div>
+
+            {/* Tabela */}
+            {aberto && (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 780 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...thStyle, textAlign: "center" }}>CR</th>
+                      <th style={{ ...thStyle, textAlign: "left", minWidth: 240 }}>Descrição</th>
+                      <th style={{ ...thStyle, textAlign: "center" }}>Mês Reajuste</th>
+                      <th style={{ ...thStyle, textAlign: "center" }}>Índice Contratual</th>
+                      <th style={{ ...thStyle, textAlign: "center" }}>Data Base CCT</th>
+                      <th style={{ ...thStyle, textAlign: "center" }}>Cl. Produtividade</th>
+                      <th style={{ ...thStyle, textAlign: "center" }}>Sindicato</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {crs.map((d, i) => (
+                      <tr key={d.cr || i} style={{ background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                        <td style={{ ...tdStyle("center"), fontWeight: 700, color: C.azul, fontFamily: "monospace", fontSize: 12 }}>{d.cr}</td>
+                        <td style={{ ...tdStyle("left"), color: C.cinzaEscuro, fontWeight: 500 }}>{d.descricaoCR || "—"}</td>
+                        <td style={tdStyle("center")}>{d.mesVigencia || "—"}</td>
+                        <td style={{ ...tdStyle("center"), fontWeight: 600, color: C.cinzaEscuro }}>{d.indiceContratual || "—"}</td>
+                        <td style={tdStyle("center")}>{d.dataBaseCCT || "—"}</td>
+                        <td style={{ ...tdStyle("center") }}>
+                          {d.clausulaProdutividade && d.clausulaProdutividade !== "N/A" && String(d.clausulaProdutividade) !== "0" ? (
+                            <span style={{
+                              display: "inline-block", padding: "2px 8px", borderRadius: 4,
+                              background: C.verdeClaro, color: C.verde,
+                              fontWeight: 600, fontSize: 12,
+                            }}>
+                              {pctFmt(d.clausulaProdutividade)}
+                            </span>
+                          ) : (
+                            <span style={{ color: C.cinzaClaro, fontSize: 12 }}>N/A</span>
+                          )}
+                        </td>
+                        <td style={{ ...tdStyle("center"), fontSize: 12 }}>{d.sindicato || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {filtrados.length === 0 && (
+        <div style={{ textAlign: "center", padding: 60, color: C.cinzaClaro }}>
+          Nenhum resultado para "{busca}"
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SecaoClientes = ({ dados }) => {
   const [justificativas, setJustificativas] = useState({});
   const [editando, setEditando] = useState(null);
@@ -1035,14 +1213,28 @@ export default function App() {
   const limparFiltros = () => setFiltros({ busca: "", filtroMes: [], filtroGerente: [], filtroStatus: [], filtroTipo: "" });
 
   const SECOES = [
-    { id: "gerencial", label: "Gestão de Reajuste", icon: "📋" },
-    { id: "economico", label: "Controle Econômico", icon: "📈" },
-    { id: "clientes",  label: "Visão do Cliente",   icon: "◉" },
+    { id: "gerencial", label: "Gestão de Reajuste",  icon: "📋" },
+    { id: "economico", label: "Controle Econômico",  icon: "📈" },
+    { id: "clientes",  label: "Visão do Cliente",    icon: "◉" },
+    { id: "matriz",    label: "Matriz de Reajuste",  icon: null, svgIcon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="9" y1="9" x2="9.01" y2="9"/>
+        <polyline points="7.5 9 8.5 10 10 8.5"/>
+        <line x1="12" y1="9" x2="15" y2="9"/>
+        <polyline points="7.5 12.5 8.5 13.5 10 12"/>
+        <line x1="12" y1="12.5" x2="14" y2="12.5"/>
+        <circle cx="18.5" cy="18.5" r="2.5"/>
+        <path d="M18.5 15v1M18.5 21v1M15 18.5h1M21 18.5h1M16.1 16.1l.7.7M20.2 20.2l.7.7M16.1 20.9l.7-.7M20.2 16.8l.7-.7"/>
+      </svg>
+    )},
   ];
   const TITULO_HEADER = {
     "gerencial": "Gestão de Reajustes Contratuais",
     "economico": "Controle Econômico",
     "clientes":  "Visão do Cliente",
+    "matriz":    "Matriz de Reajuste",
   };
   const secaoAtual = SECOES.find(s => s.id === secao);
 
@@ -1086,7 +1278,7 @@ export default function App() {
 
         {/* Nav */}
         <nav style={{ padding: "10px 6px" }}>
-          {SECOES.map(({ id, label, icon }) => (
+          {SECOES.map(({ id, label, icon, svgIcon }) => (
             <button key={id} onClick={() => setSecao(id)} title={!menuAberto ? label : undefined} style={{
               display: "flex", alignItems: "center",
               gap: menuAberto ? 10 : 0,
@@ -1106,7 +1298,7 @@ export default function App() {
               transition: "all 0.15s", whiteSpace: "nowrap", overflow: "hidden",
               borderLeft: menuAberto ? (secao === id ? "3px solid rgba(255,255,255,0.7)" : "3px solid transparent") : "none",
             }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
+              <span style={{ fontSize: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>{svgIcon || icon}</span>
               {menuAberto && <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>}
             </button>
           ))}
@@ -1235,8 +1427,10 @@ export default function App() {
             <SecaoGerencial dados={dados} onUpdate={onUpdate} setToast={setToast} filtros={filtros} />
           ) : secao === "economico" ? (
             <SecaoEconomico dados={dados} filtros={filtros} />
-          ) : (
+          ) : secao === "clientes" ? (
             <SecaoClientes dados={dados} />
+          ) : (
+            <SecaoMatriz dados={dados} />
           )}
         </div>
       </div>
