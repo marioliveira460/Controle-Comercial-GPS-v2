@@ -10,7 +10,7 @@ const STATUS_OPTS = ["Em Negociação", "Em Negociação Antecipada", "Aguardand
 
 // Paleta In-Haus GPS
 const C = {
-  azul:      "#006080",   // azul petróleo In-Haus
+  azul:      "#006080",
   azulMedio: "#007fa3",
   azulClaro: "#e6f4f8",
   cinzaEscuro:"#2d3748",
@@ -164,12 +164,12 @@ const parseGerencial = (values) => {
 
 // ─── Logo In-Haus inline ─────────────────────────────────────────────────────
 const LogoInHaus = ({ small }) => (
-  <div style={{ lineHeight: 1 }}>
-    <div style={{ display: "flex", alignItems: "baseline", gap: 0 }}>
-      <span style={{ fontWeight: 700, fontSize: small ? 18 : 24, color: "#5a5f63", letterSpacing: "-0.5px", fontFamily: "'Segoe UI', Arial, sans-serif" }}>In</span>
-      <span style={{ fontWeight: 700, fontSize: small ? 18 : 24, color: C.azul, letterSpacing: "-0.5px", fontFamily: "'Segoe UI', Arial, sans-serif" }}>·Haus</span>
+  <div style={{ lineHeight: 1, textAlign: "center" }}>
+    <div style={{ display: "flex", alignItems: "baseline", gap: 0, justifyContent: "center" }}>
+      <span style={{ fontWeight: 700, fontSize: small ? 18 : 22, color: "#fff", letterSpacing: "-0.5px", fontFamily: "'Segoe UI', Arial, sans-serif" }}>In</span>
+      <span style={{ fontWeight: 700, fontSize: small ? 18 : 22, color: "rgba(255,255,255,0.75)", letterSpacing: "-0.5px", fontFamily: "'Segoe UI', Arial, sans-serif" }}>·Haus</span>
     </div>
-    <div style={{ fontSize: small ? 9 : 11, color: "#5a5f63", letterSpacing: "0.18em", marginTop: 1, fontWeight: 400, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
+    <div style={{ fontSize: small ? 8 : 10, color: "rgba(255,255,255,0.5)", letterSpacing: "0.22em", marginTop: 2, fontWeight: 400, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
       logística
     </div>
   </div>
@@ -251,34 +251,10 @@ const KpiCard = ({ label, value, color, sub }) => (
   </div>
 );
 
-// ─── Chip filtro ─────────────────────────────────────────────────────────────
-const Chip = ({ label, ativo, onClick }) => (
-  <button onClick={onClick} style={{
-    padding: "3px 10px", borderRadius: 20, fontSize: 11, cursor: "pointer",
-    border: `1px solid ${ativo ? C.azul : C.borda}`,
-    background: ativo ? C.azul : "#fff",
-    color: ativo ? "#fff" : C.cinzaMedio,
-    fontWeight: ativo ? 600 : 400, transition: "all 0.15s"
-  }}>{label}</button>
-);
-
 // ─── Seção Gestão de Reajustes ────────────────────────────────────────────────
-const SecaoGerencial = ({ dados, gerentes, onUpdate, setToast }) => {
-  const [busca, setBusca] = useState("");
-  const [filtroMes, setFiltroMes] = useState([]);
-  const [filtroGerente, setFiltroGerente] = useState([]);
-  const [filtroStatus, setFiltroStatus] = useState([]);
-  const [filtroTipo, setFiltroTipo] = useState("");
+const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
   const [expandido, setExpandido] = useState({});
-
-  const toggle = (val) => (prev) => {
-    const s = new Set(prev);
-    s.has(val) ? s.delete(val) : s.add(val);
-    return [...s];
-  };
-
-  const meses = useMemo(() => [...new Set(dados.map(d => d.mes).filter(Boolean))].sort((a, b) => mesNum(a) - mesNum(b)), [dados]);
-  const tipos = useMemo(() => [...new Set(dados.map(d => d.tipo).filter(Boolean))].sort(), [dados]);
+  const { busca, filtroMes, filtroGerente, filtroStatus, filtroTipo } = filtros;
 
   const filtrado = useMemo(() => dados.filter(d => {
     if (busca && !`${d.cr} ${d.grupoCliente} ${d.descri} ${d.gerente}`.toLowerCase().includes(busca.toLowerCase())) return false;
@@ -302,11 +278,26 @@ const SecaoGerencial = ({ dados, gerentes, onUpdate, setToast }) => {
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
   }, [filtrado]);
 
-  const porTipo = useMemo(() => {
+  // KPIs por status
+  const kpiStatus = useMemo(() => {
     const m = {};
-    filtrado.forEach(d => { m[d.tipo] = (m[d.tipo] || 0) + 1; });
+    filtrado.forEach(d => {
+      const st = d.status || statusTemporal(d) || "Sem Status";
+      m[st] = (m[st] || 0) + 1;
+    });
     return m;
   }, [filtrado]);
+
+  const STATUS_COR = {
+    "Concluído":                { color: C.verde,    bg: C.verdeClaro },
+    "Aprovado":                 { color: C.verde,    bg: C.verdeClaro },
+    "Pendente Cliente":         { color: C.laranja,  bg: C.laranjaClaro },
+    "Pendente GPS":             { color: C.azul,     bg: C.azulClaro },
+    "Negócio Perdido":          { color: C.vermelho, bg: C.vermelhoClaro },
+    "Em Negociação":            { color: C.azulMedio,bg: C.azulClaro },
+    "Em Negociação Antecipada": { color: C.roxo,     bg: C.roxoClaro },
+    "Aguardando Reajuste":      { color: C.laranja,  bg: C.laranjaClaro },
+  };
 
   const salvar = async (row, campo, valor) => {
     try {
@@ -319,160 +310,115 @@ const SecaoGerencial = ({ dados, gerentes, onUpdate, setToast }) => {
     }
   };
 
-  const temFiltro = busca || filtroMes.length || filtroGerente.length || filtroStatus.length || filtroTipo;
-
   return (
-    <div style={{ display: "flex", gap: 16, height: "100%" }}>
-      {/* Sidebar filtros */}
-      <div style={{ width: 210, flexShrink: 0, background: C.bgSidebar, borderRadius: 10, padding: 16, overflowY: "auto", border: `1px solid ${C.borda}` }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.cinzaClaro, marginBottom: 14, letterSpacing: "0.06em" }}>FILTROS</div>
-        <input placeholder="Buscar CR, cliente..." value={busca} onChange={e => setBusca(e.target.value)}
-          style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: `1px solid ${C.borda}`, background: "#f9fbfc", color: C.cinzaEscuro, fontSize: 12, marginBottom: 16, boxSizing: "border-box", outline: "none" }} />
-
-        {[
-          { label: "Mês", vals: filtroMes, opts: meses, set: setFiltroMes },
-          { label: "Gerente", vals: filtroGerente, opts: gerentes, set: setFiltroGerente },
-          { label: "Status", vals: filtroStatus, opts: ["Concluído","Em Negociação","Negócio Perdido","Aguardando","Aprovado","Pendente"], set: setFiltroStatus },
-        ].map(({ label, vals, opts, set }) => (
-          <div key={label} style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.cinzaClaro, marginBottom: 6, letterSpacing: "0.06em" }}>{label.toUpperCase()}</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {opts.map(o => <Chip key={o} label={o} ativo={vals.includes(o)} onClick={() => set(toggle(o))} />)}
-            </div>
-          </div>
-        ))}
-
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.cinzaClaro, marginBottom: 6, letterSpacing: "0.06em" }}>TIPO</div>
-          <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}
-            style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: `1px solid ${C.borda}`, background: "#f9fbfc", color: C.cinzaEscuro, fontSize: 12, outline: "none" }}>
-            <option value="">Todos</option>
-            {tipos.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-
-        {temFiltro && (
-          <button onClick={() => { setBusca(""); setFiltroMes([]); setFiltroGerente([]); setFiltroStatus([]); setFiltroTipo(""); }}
-            style={{ width: "100%", padding: "6px", borderRadius: 6, border: `1px solid ${C.borda}`, background: "#fff", color: C.cinzaMedio, fontSize: 11, cursor: "pointer" }}>
-            Redefinir filtros
-          </button>
-        )}
-      </div>
-
-      {/* Conteúdo */}
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        {/* KPIs */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10, marginBottom: 16 }}>
-          <KpiCard label="Total de CRs" value={filtrado.length} color={C.azul} />
-          <KpiCard label="Grupos Cliente" value={grupos.length} color={C.cinzaMedio} />
-          {Object.entries(porTipo).map(([t, c]) => (
-            <KpiCard key={t} label={t} value={c} color={TIPO_COR[t] || C.cinzaMedio} />
-          ))}
-        </div>
-
-        {/* Tabela por grupo */}
-        {grupos.map(([grupo, rows]) => {
-          const aberto = expandido[grupo] !== false;
-          const tiposGrupo = [...new Set(rows.map(r => r.tipo).filter(Boolean))];
-          const statusGrupo = [...new Set(rows.map(r => r.status || statusTemporal(r)).filter(Boolean))];
-          const temPerdido = statusGrupo.some(s => s?.includes("Perdido"));
-          const temConcluido = statusGrupo.every(s => s?.includes("Concluído") || s?.includes("Aprovado"));
-
-          return (
-            <div key={grupo} style={{ background: C.bgCard, borderRadius: 10, marginBottom: 8, border: `1px solid ${C.borda}`, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-              <div onClick={() => setExpandido(p => ({ ...p, [grupo]: !aberto }))}
-                style={{ padding: "11px 16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", borderBottom: aberto ? `1px solid ${C.borda}` : "none" }}>
-                <span style={{ color: C.cinzaClaro, fontSize: 10 }}>{aberto ? "▼" : "▶"}</span>
-                <span style={{ fontWeight: 700, color: C.cinzaEscuro, fontSize: 13 }}>{grupo}</span>
-                <span style={{ fontSize: 11, color: C.cinzaClaro, fontWeight: 400 }}>{rows.length} contrato{rows.length !== 1 ? "s" : ""}</span>
-                <div style={{ marginLeft: "auto", display: "flex", gap: 5, alignItems: "center" }}>
-                  {temPerdido && <Badge label="Negócio Perdido" color={C.vermelho} bg={C.vermelhoClaro} />}
-                  {temConcluido && !temPerdido && <Badge label="Concluído" color={C.verde} bg={C.verdeClaro} />}
-                  {tiposGrupo.map(t => <Badge key={t} label={t} color={TIPO_COR[t] || C.cinzaMedio} bg={TIPO_BG[t] || C.azulClaro} />)}
-                </div>
-              </div>
-              {aberto && (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ background: "#f8fafc" }}>
-                        {["CR","Descrição","Mês","Gerente Regional","Devido %","Aplicado %","Prazo de Negociação","Tipo","Status"].map(h => (
-                          <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: C.cinzaClaro, fontWeight: 600, fontSize: 11, whiteSpace: "nowrap", borderBottom: `1px solid ${C.borda}` }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((row, i) => {
-                        const inicio = parseData(row.inicioNeg);
-                        const aprov = parseData(row.dataAprov);
-                        const dias = diasEntre(inicio, aprov || new Date());
-                        const concluido = !!aprov;
-                        const stTemp = statusTemporal(row);
-
-                        return (
-                          <tr key={row.cr + i} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                            <td style={{ padding: "8px 12px", color: C.cinzaMedio, fontFamily: "monospace", fontSize: 11 }}>{row.cr}</td>
-                            <td style={{ padding: "8px 12px", color: C.cinzaEscuro, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descri}</td>
-                            <td style={{ padding: "8px 12px", color: C.cinzaMedio, whiteSpace: "nowrap" }}>{row.mes}</td>
-                            <td style={{ padding: "8px 12px", color: C.cinzaEscuro, whiteSpace: "nowrap", fontWeight: 500 }}>{row.gerente}</td>
-                            <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
-                              <EditableCell value={pctFmt(row.devido)} type="text" onSave={(v) => salvar(row, "Devido (%)", v)} />
-                            </td>
-                            <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
-                              <EditableCell value={pctFmt(row.aplicado)} type="text" onSave={(v) => salvar(row, "Aplicado (%)", v)} />
-                            </td>
-                            <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
-                              {stTemp ? (
-                                <span style={{
-                                  display: "inline-block", padding: "2px 8px", borderRadius: 4,
-                                  background: stTemp.includes("Antecipada") ? C.roxoClaro : C.azulClaro,
-                                  color: stTemp.includes("Antecipada") ? C.roxo : C.azul,
-                                  fontSize: 11, fontWeight: 600
-                                }}>{stTemp}</span>
-                              ) : dias !== null ? (
-                                <span style={{
-                                  display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600,
-                                  background: concluido ? C.verdeClaro : C.laranjaClaro,
-                                  color: concluido ? C.verde : C.laranja
-                                }}>
-                                  {concluido ? "✓" : "⏳"} {dias}d
-                                </span>
-                              ) : <span style={{ color: C.borda }}>—</span>}
-                            </td>
-                            <td style={{ padding: "8px 12px" }}>
-                              <EditableCell value={row.tipo} opts={TIPO_OPTS} type="select" onSave={(v) => salvar(row, "Tipo de Negócio", v)} />
-                            </td>
-                            <td style={{ padding: "8px 12px" }}>
-                              <EditableCell value={row.status} opts={STATUS_OPTS} type="select" onSave={(v) => salvar(row, "Status Real", v)} />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          );
+    <div style={{ flex: 1, overflowY: "auto" }}>
+      {/* KPIs */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10, marginBottom: 16 }}>
+        <KpiCard label="Total de CRs" value={filtrado.length} color={C.azul} />
+        {Object.entries(kpiStatus).sort((a,b) => b[1]-a[1]).map(([st, c]) => {
+          const cor = STATUS_COR[st] || { color: C.cinzaMedio, bg: C.bg };
+          return <KpiCard key={st} label={st} value={c} color={cor.color} />;
         })}
-        {grupos.length === 0 && (
-          <div style={{ color: C.cinzaClaro, textAlign: "center", marginTop: 60, fontSize: 14 }}>Nenhum registro encontrado</div>
-        )}
       </div>
+
+      {/* Tabela por grupo */}
+      {grupos.map(([grupo, rows]) => {
+        const aberto = expandido[grupo] !== false;
+        const tiposGrupo = [...new Set(rows.map(r => r.tipo).filter(Boolean))];
+        const statusGrupo = [...new Set(rows.map(r => r.status || statusTemporal(r)).filter(Boolean))];
+        const temPerdido = statusGrupo.some(s => s?.includes("Perdido"));
+        const temConcluido = statusGrupo.every(s => s?.includes("Concluído") || s?.includes("Aprovado"));
+
+        return (
+          <div key={grupo} style={{ background: C.bgCard, borderRadius: 10, marginBottom: 8, border: `1px solid ${C.borda}`, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+            <div onClick={() => setExpandido(p => ({ ...p, [grupo]: !aberto }))}
+              style={{ padding: "11px 16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", borderBottom: aberto ? `1px solid ${C.borda}` : "none" }}>
+              <span style={{ color: C.cinzaClaro, fontSize: 10 }}>{aberto ? "▼" : "▶"}</span>
+              <span style={{ fontWeight: 700, color: C.cinzaEscuro, fontSize: 13 }}>{grupo}</span>
+              <span style={{ fontSize: 11, color: C.cinzaClaro, fontWeight: 400 }}>{rows.length} contrato{rows.length !== 1 ? "s" : ""}</span>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 5, alignItems: "center" }}>
+                {temPerdido && <Badge label="Negócio Perdido" color={C.vermelho} bg={C.vermelhoClaro} />}
+                {temConcluido && !temPerdido && <Badge label="Concluído" color={C.verde} bg={C.verdeClaro} />}
+                {tiposGrupo.map(t => <Badge key={t} label={t} color={TIPO_COR[t] || C.cinzaMedio} bg={TIPO_BG[t] || C.azulClaro} />)}
+              </div>
+            </div>
+            {aberto && (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc" }}>
+                      {["CR","Descrição","Mês","Gerente Regional","Devido %","Aplicado %","Prazo de Negociação","Tipo","Status"].map(h => (
+                        <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: C.cinzaClaro, fontWeight: 600, fontSize: 11, whiteSpace: "nowrap", borderBottom: `1px solid ${C.borda}` }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => {
+                      const inicio = parseData(row.inicioNeg);
+                      const aprov = parseData(row.dataAprov);
+                      const dias = diasEntre(inicio, aprov || new Date());
+                      const concluido = !!aprov;
+                      const stTemp = statusTemporal(row);
+
+                      return (
+                        <tr key={row.cr + i} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                          <td style={{ padding: "8px 12px", color: C.cinzaMedio, fontFamily: "monospace", fontSize: 11 }}>{row.cr}</td>
+                          <td style={{ padding: "8px 12px", color: C.cinzaEscuro, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descri}</td>
+                          <td style={{ padding: "8px 12px", color: C.cinzaMedio, whiteSpace: "nowrap" }}>{row.mes}</td>
+                          <td style={{ padding: "8px 12px", color: C.cinzaEscuro, whiteSpace: "nowrap", fontWeight: 500 }}>{row.gerente}</td>
+                          <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
+                            <EditableCell value={pctFmt(row.devido)} type="text" onSave={(v) => salvar(row, "Devido (%)", v)} />
+                          </td>
+                          <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
+                            <EditableCell value={pctFmt(row.aplicado)} type="text" onSave={(v) => salvar(row, "Aplicado (%)", v)} />
+                          </td>
+                          <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
+                            {stTemp ? (
+                              <span style={{
+                                display: "inline-block", padding: "2px 8px", borderRadius: 4,
+                                background: stTemp.includes("Antecipada") ? C.roxoClaro : C.azulClaro,
+                                color: stTemp.includes("Antecipada") ? C.roxo : C.azul,
+                                fontSize: 11, fontWeight: 600
+                              }}>{stTemp}</span>
+                            ) : dias !== null ? (
+                              <span style={{
+                                display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600,
+                                background: concluido ? C.verdeClaro : C.laranjaClaro,
+                                color: concluido ? C.verde : C.laranja
+                              }}>
+                                {concluido ? "✓" : "⏳"} {dias}d
+                              </span>
+                            ) : <span style={{ color: C.borda }}>—</span>}
+                          </td>
+                          <td style={{ padding: "8px 12px" }}>
+                            <EditableCell value={row.tipo} opts={TIPO_OPTS} type="select" onSave={(v) => salvar(row, "Tipo de Negócio", v)} />
+                          </td>
+                          <td style={{ padding: "8px 12px" }}>
+                            <EditableCell value={row.status} opts={STATUS_OPTS} type="select" onSave={(v) => salvar(row, "Status Real", v)} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {grupos.length === 0 && (
+        <div style={{ color: C.cinzaClaro, textAlign: "center", marginTop: 60, fontSize: 14 }}>Nenhum registro encontrado</div>
+      )}
     </div>
   );
 };
 
 // ─── Seção Controle Econômico ─────────────────────────────────────────────────
-const SecaoEconomico = ({ dados, gerentes }) => {
-  const [filtroGerente, setFiltroGerente] = useState([]);
-  const [filtroMes, setFiltroMes] = useState([]);
-  const [filtroTipo, setFiltroTipo] = useState("");
+const SecaoEconomico = ({ dados, filtros }) => {
+  const { filtroGerente, filtroMes, filtroTipo } = filtros;
   const [expandido, setExpandido] = useState({});
 
-  const meses = useMemo(() => [...new Set(dados.map(d => d.mes).filter(Boolean))].sort((a, b) => mesNum(a) - mesNum(b)), [dados]);
   const tipos = useMemo(() => [...new Set(dados.map(d => d.tipo).filter(Boolean))].sort(), [dados]);
-  const toggle = (val) => (prev) => { const s = new Set(prev); s.has(val) ? s.delete(val) : s.add(val); return [...s]; };
 
   const filtrado = useMemo(() => dados.filter(d => {
     if (filtroMes.length && !filtroMes.includes(d.mes)) return false;
@@ -497,112 +443,81 @@ const SecaoEconomico = ({ dados, gerentes }) => {
   const pctGlobal = totalAtual > 0 ? (totalGanho / totalAtual) * 100 : 0;
 
   return (
-    <div style={{ display: "flex", gap: 16, height: "100%" }}>
-      <div style={{ width: 210, flexShrink: 0, background: C.bgSidebar, borderRadius: 10, padding: 16, overflowY: "auto", border: `1px solid ${C.borda}` }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.cinzaClaro, marginBottom: 14, letterSpacing: "0.06em" }}>FILTROS</div>
-        {[
-          { label: "Mês", vals: filtroMes, opts: meses, set: setFiltroMes },
-          { label: "Gerente", vals: filtroGerente, opts: gerentes, set: setFiltroGerente },
-        ].map(({ label, vals, opts, set }) => (
-          <div key={label} style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.cinzaClaro, marginBottom: 6, letterSpacing: "0.06em" }}>{label.toUpperCase()}</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {opts.map(o => <Chip key={o} label={o} ativo={vals.includes(o)} onClick={() => set(toggle(o))} />)}
-            </div>
-          </div>
-        ))}
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.cinzaClaro, marginBottom: 6, letterSpacing: "0.06em" }}>TIPO</div>
-          <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}
-            style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: `1px solid ${C.borda}`, background: "#f9fbfc", color: C.cinzaEscuro, fontSize: 12, outline: "none" }}>
-            <option value="">Todos</option>
-            {tipos.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-        {(filtroMes.length || filtroGerente.length || filtroTipo) && (
-          <button onClick={() => { setFiltroMes([]); setFiltroGerente([]); setFiltroTipo(""); }}
-            style={{ width: "100%", padding: "6px", borderRadius: 6, border: `1px solid ${C.borda}`, background: "#fff", color: C.cinzaMedio, fontSize: 11, cursor: "pointer" }}>
-            Redefinir filtros
-          </button>
-        )}
+    <div style={{ flex: 1, overflowY: "auto" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 16 }}>
+        <KpiCard label="Valor Total dos Contratos" value={brlFmt(totalAtual)} color={C.azul} />
+        <KpiCard label="Valor Final / Pleito" value={brlFmt(totalFinal)} color={C.verde} />
+        <KpiCard label="Ganho Estimado" value={brlFmt(totalGanho)} color={totalGanho >= 0 ? C.verde : C.vermelho} />
+        <KpiCard label="Reajuste Médio" value={`${pctGlobal.toFixed(2).replace(".", ",")}%`} color={C.laranja} />
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 16 }}>
-          <KpiCard label="Valor Total dos Contratos" value={brlFmt(totalAtual)} color={C.azul} />
-          <KpiCard label="Valor Final / Pleito" value={brlFmt(totalFinal)} color={C.verde} />
-          <KpiCard label="Ganho Estimado" value={brlFmt(totalGanho)} color={totalGanho >= 0 ? C.verde : C.vermelho} />
-          <KpiCard label="Reajuste Médio" value={`${pctGlobal.toFixed(2).replace(".", ",")}%`} color={C.laranja} />
-        </div>
+      {grupos.map(([grupo, rows]) => {
+        const gAtual = rows.reduce((s, d) => s + num(d.valorAtual), 0);
+        const gFinal = rows.reduce((s, d) => s + num(d.valorFinal), 0);
+        const gGanho = gFinal - gAtual;
+        const gPct = gAtual > 0 ? (gGanho / gAtual) * 100 : 0;
+        const aberto = expandido[grupo] !== false;
 
-        {grupos.map(([grupo, rows]) => {
-          const gAtual = rows.reduce((s, d) => s + num(d.valorAtual), 0);
-          const gFinal = rows.reduce((s, d) => s + num(d.valorFinal), 0);
-          const gGanho = gFinal - gAtual;
-          const gPct = gAtual > 0 ? (gGanho / gAtual) * 100 : 0;
-          const aberto = expandido[grupo] !== false;
-
-          return (
-            <div key={grupo} style={{ background: C.bgCard, borderRadius: 10, marginBottom: 8, border: `1px solid ${C.borda}`, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-              <div onClick={() => setExpandido(p => ({ ...p, [grupo]: !aberto }))}
-                style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", borderBottom: aberto ? `1px solid ${C.borda}` : "none" }}>
-                <span style={{ color: C.cinzaClaro, fontSize: 10 }}>{aberto ? "▼" : "▶"}</span>
-                <span style={{ fontWeight: 700, color: C.cinzaEscuro, fontSize: 13, flex: 1 }}>{grupo}</span>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20, textAlign: "right" }}>
-                  {[
-                    { l: "Contrato Atual", v: brlFmt(gAtual), c: C.cinzaMedio },
-                    { l: "Valor Final", v: brlFmt(gFinal), c: C.verde },
-                    { l: "Ganho", v: brlFmt(gGanho), c: gGanho >= 0 ? C.verde : C.vermelho },
-                    { l: "Reajuste", v: `${gPct.toFixed(2).replace(".", ",")}%`, c: C.laranja },
-                  ].map(({ l, v, c }) => (
-                    <div key={l}>
-                      <div style={{ fontSize: 10, color: C.cinzaClaro }}>{l}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: c }}>{v}</div>
-                    </div>
-                  ))}
-                </div>
+        return (
+          <div key={grupo} style={{ background: C.bgCard, borderRadius: 10, marginBottom: 8, border: `1px solid ${C.borda}`, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+            <div onClick={() => setExpandido(p => ({ ...p, [grupo]: !aberto }))}
+              style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", borderBottom: aberto ? `1px solid ${C.borda}` : "none" }}>
+              <span style={{ color: C.cinzaClaro, fontSize: 10 }}>{aberto ? "▼" : "▶"}</span>
+              <span style={{ fontWeight: 700, color: C.cinzaEscuro, fontSize: 13, flex: 1 }}>{grupo}</span>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20, textAlign: "right" }}>
+                {[
+                  { l: "Contrato Atual", v: brlFmt(gAtual), c: C.cinzaMedio },
+                  { l: "Valor Final", v: brlFmt(gFinal), c: C.verde },
+                  { l: "Ganho", v: brlFmt(gGanho), c: gGanho >= 0 ? C.verde : C.vermelho },
+                  { l: "Reajuste", v: `${gPct.toFixed(2).replace(".", ",")}%`, c: C.laranja },
+                ].map(({ l, v, c }) => (
+                  <div key={l}>
+                    <div style={{ fontSize: 10, color: C.cinzaClaro }}>{l}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: c }}>{v}</div>
+                  </div>
+                ))}
               </div>
-              {aberto && (
-                <div style={{ overflowX: "auto", borderTop: `1px solid ${C.borda}` }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ background: "#f8fafc" }}>
-                        {["CR","Descrição","Mês","Gerente","Tipo","Contrato Atual","Valor Final","Ganho","Reajuste"].map(h => (
-                          <th key={h} style={{ padding: "7px 12px", textAlign: "left", color: C.cinzaClaro, fontWeight: 600, fontSize: 11, whiteSpace: "nowrap", borderBottom: `1px solid ${C.borda}` }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((row, i) => {
-                        const vAtual = num(row.valorAtual);
-                        const vFinal = num(row.valorFinal);
-                        const ganho = vFinal - vAtual;
-                        const pct = vAtual > 0 ? (ganho / vAtual) * 100 : 0;
-                        return (
-                          <tr key={row.cr + i} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                            <td style={{ padding: "7px 12px", color: C.cinzaMedio, fontFamily: "monospace", fontSize: 11 }}>{row.cr}</td>
-                            <td style={{ padding: "7px 12px", color: C.cinzaEscuro, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descri}</td>
-                            <td style={{ padding: "7px 12px", color: C.cinzaMedio }}>{row.mes}</td>
-                            <td style={{ padding: "7px 12px", color: C.cinzaEscuro, fontWeight: 500 }}>{row.gerente}</td>
-                            <td style={{ padding: "7px 12px" }}><Badge label={row.tipo || "—"} color={TIPO_COR[row.tipo] || C.cinzaMedio} bg={TIPO_BG[row.tipo] || C.azulClaro} /></td>
-                            <td style={{ padding: "7px 12px", color: C.cinzaMedio }}>{brlFmt(vAtual)}</td>
-                            <td style={{ padding: "7px 12px", color: C.verde, fontWeight: 600 }}>{brlFmt(vFinal)}</td>
-                            <td style={{ padding: "7px 12px", color: ganho >= 0 ? C.verde : C.vermelho, fontWeight: 600 }}>{brlFmt(ganho)}</td>
-                            <td style={{ padding: "7px 12px", color: C.laranja, fontWeight: 700 }}>{pct.toFixed(2).replace(".", ",")}%</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
             </div>
-          );
-        })}
-        {grupos.length === 0 && (
-          <div style={{ color: C.cinzaClaro, textAlign: "center", marginTop: 60, fontSize: 14 }}>Nenhum registro com valores preenchidos</div>
-        )}
-      </div>
+            {aberto && (
+              <div style={{ overflowX: "auto", borderTop: `1px solid ${C.borda}` }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc" }}>
+                      {["CR","Descrição","Mês","Gerente","Tipo","Contrato Atual","Valor Final","Ganho","Reajuste"].map(h => (
+                        <th key={h} style={{ padding: "7px 12px", textAlign: "left", color: C.cinzaClaro, fontWeight: 600, fontSize: 11, whiteSpace: "nowrap", borderBottom: `1px solid ${C.borda}` }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => {
+                      const vAtual = num(row.valorAtual);
+                      const vFinal = num(row.valorFinal);
+                      const ganho = vFinal - vAtual;
+                      const pct = vAtual > 0 ? (ganho / vAtual) * 100 : 0;
+                      return (
+                        <tr key={row.cr + i} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                          <td style={{ padding: "7px 12px", color: C.cinzaMedio, fontFamily: "monospace", fontSize: 11 }}>{row.cr}</td>
+                          <td style={{ padding: "7px 12px", color: C.cinzaEscuro, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descri}</td>
+                          <td style={{ padding: "7px 12px", color: C.cinzaMedio }}>{row.mes}</td>
+                          <td style={{ padding: "7px 12px", color: C.cinzaEscuro, fontWeight: 500 }}>{row.gerente}</td>
+                          <td style={{ padding: "7px 12px" }}><Badge label={row.tipo || "—"} color={TIPO_COR[row.tipo] || C.cinzaMedio} bg={TIPO_BG[row.tipo] || C.azulClaro} /></td>
+                          <td style={{ padding: "7px 12px", color: C.cinzaMedio }}>{brlFmt(vAtual)}</td>
+                          <td style={{ padding: "7px 12px", color: C.verde, fontWeight: 600 }}>{brlFmt(vFinal)}</td>
+                          <td style={{ padding: "7px 12px", color: ganho >= 0 ? C.verde : C.vermelho, fontWeight: 600 }}>{brlFmt(ganho)}</td>
+                          <td style={{ padding: "7px 12px", color: C.laranja, fontWeight: 700 }}>{pct.toFixed(2).replace(".", ",")}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {grupos.length === 0 && (
+        <div style={{ color: C.cinzaClaro, textAlign: "center", marginTop: 60, fontSize: 14 }}>Nenhum registro com valores preenchidos</div>
+      )}
     </div>
   );
 };
@@ -610,11 +525,22 @@ const SecaoEconomico = ({ dados, gerentes }) => {
 // ─── App Principal ────────────────────────────────────────────────────────────
 export default function App() {
   const [secao, setSecao] = useState("gerencial");
+  const [menuAberto, setMenuAberto] = useState(true);
   const [dados, setDados] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
   const [toast, setToast] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
+
+  // Filtros globais (compartilhados entre seções)
+  const [busca, setBusca] = useState("");
+  const [filtroMes, setFiltroMes] = useState([]);
+  const [filtroGerente, setFiltroGerente] = useState([]);
+  const [filtroStatus, setFiltroStatus] = useState([]);
+  const [filtroTipo, setFiltroTipo] = useState("");
+
+  const filtros = { busca, filtroMes, filtroGerente, filtroStatus, filtroTipo };
+  const temFiltro = busca || filtroMes.length || filtroGerente.length || filtroStatus.length || filtroTipo;
 
   const carregarDados = useCallback(async () => {
     setLoading(true);
@@ -633,6 +559,7 @@ export default function App() {
   useEffect(() => { carregarDados(); }, [carregarDados]);
 
   const gerentes = useMemo(() => [...new Set(dados.map(d => d.gerente).filter(Boolean))].sort(), [dados]);
+  const meses = useMemo(() => [...new Set(dados.map(d => d.mes).filter(Boolean))].sort((a, b) => mesNum(a) - mesNum(b)), [dados]);
 
   const onUpdate = useCallback((cr, campo, valor) => {
     setDados(prev => prev.map(d => {
@@ -643,71 +570,210 @@ export default function App() {
     }));
   }, []);
 
+  const toggle = (val) => (prev) => { const s = new Set(prev); s.has(val) ? s.delete(val) : s.add(val); return [...s]; };
+
   const SECOES = [
     { id: "gerencial", label: "Gestão de Reajustes Contratuais", icon: "📋" },
     { id: "economico", label: "Controle Econômico", icon: "📈" },
   ];
   const secaoAtual = SECOES.find(s => s.id === secao);
 
+  // Label do filtro de status com cor
+  const STATUS_COR_SIDEBAR = {
+    "Concluído":                "rgba(10,138,92,0.8)",
+    "Aprovado":                 "rgba(10,138,92,0.8)",
+    "Pendente Cliente":         "rgba(201,107,0,0.8)",
+    "Pendente GPS":             "rgba(255,255,255,0.7)",
+    "Negócio Perdido":          "rgba(192,57,43,0.8)",
+    "Em Negociação":            "rgba(255,255,255,0.65)",
+    "Em Negociação Antecipada": "rgba(176,148,255,0.9)",
+    "Aguardando Reajuste":      "rgba(201,107,0,0.8)",
+  };
+
   return (
     <div style={{ display: "flex", height: "100vh", background: C.bg, color: C.cinzaEscuro, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", overflow: "hidden" }}>
-      {/* Sidebar */}
-      <div style={{ width: 230, flexShrink: 0, background: C.azul, display: "flex", flexDirection: "column" }}>
-        {/* Logo */}
-        <div style={{ padding: "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,0.12)", background: "#fff" }}>
-          <LogoInHaus />
-          <div style={{ marginTop: 6, fontSize: 10, color: C.cinzaClaro, letterSpacing: "0.05em" }}>Painel Comercial · Farmer</div>
+
+      {/* ── Sidebar retrátil ─────────────────────────────────────────────── */}
+      <div style={{
+        width: menuAberto ? 240 : 52, flexShrink: 0,
+        background: C.azul, display: "flex", flexDirection: "column",
+        transition: "width 0.22s cubic-bezier(.4,0,.2,1)", overflow: "hidden",
+        position: "relative"
+      }}>
+        {/* Logo + toggle */}
+        <div style={{
+          padding: menuAberto ? "18px 14px 14px" : "18px 0 14px",
+          borderBottom: "1px solid rgba(255,255,255,0.12)",
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 10
+        }}>
+          {menuAberto && <LogoInHaus />}
+          <button
+            onClick={() => setMenuAberto(v => !v)}
+            title={menuAberto ? "Recolher menu" : "Expandir menu"}
+            style={{
+              background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: 6, color: "#fff", cursor: "pointer",
+              width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 13, flexShrink: 0, transition: "background 0.15s"
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.22)"}
+            onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.12)"}
+          >
+            {menuAberto ? "◀" : "▶"}
+          </button>
         </div>
 
         {/* Nav */}
-        <nav style={{ padding: "12px 8px", flex: 1 }}>
+        <nav style={{ padding: menuAberto ? "10px 8px" : "10px 6px" }}>
           {SECOES.map(({ id, label, icon }) => (
-            <button key={id} onClick={() => setSecao(id)} style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 7,
+            <button key={id} onClick={() => setSecao(id)} title={!menuAberto ? label : undefined} style={{
+              display: "flex", alignItems: "center", gap: menuAberto ? 10 : 0,
+              justifyContent: menuAberto ? "flex-start" : "center",
+              padding: menuAberto ? "10px 12px" : "10px 0",
+              borderRadius: 7,
               background: secao === id ? "rgba(255,255,255,0.15)" : "transparent",
               border: "none", color: secao === id ? "#fff" : "rgba(255,255,255,0.65)",
               cursor: "pointer", fontSize: 13, fontWeight: secao === id ? 600 : 400,
               textAlign: "left", width: "100%", marginBottom: 2, transition: "all 0.15s",
-              borderLeft: secao === id ? "3px solid rgba(255,255,255,0.8)" : "3px solid transparent"
+              borderLeft: menuAberto ? (secao === id ? "3px solid rgba(255,255,255,0.8)" : "3px solid transparent") : "none",
+              whiteSpace: "nowrap", overflow: "hidden"
             }}>
-              <span style={{ fontSize: 15 }}>{icon}</span>
-              <span>{label}</span>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
+              {menuAberto && <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>}
             </button>
           ))}
         </nav>
 
+        {/* Filtros — apenas quando expandido */}
+        {menuAberto && (
+          <div style={{ flex: 1, overflowY: "auto", padding: "0 10px 10px" }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: "0.12em", marginBottom: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+              FILTROS
+            </div>
+
+            {/* Busca */}
+            <div style={{ marginBottom: 12 }}>
+              <input
+                type="text" placeholder="Buscar CR, cliente…" value={busca}
+                onChange={e => setBusca(e.target.value)}
+                style={{
+                  width: "100%", padding: "6px 10px", borderRadius: 6, boxSizing: "border-box",
+                  border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)",
+                  color: "#fff", fontSize: 12, outline: "none",
+                }}
+              />
+            </div>
+
+            {/* Mês */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 6 }}>MÊS</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {meses.map(m => (
+                  <button key={m} onClick={() => setFiltroMes(toggle(m))}
+                    style={{
+                      padding: "3px 8px", borderRadius: 20, fontSize: 10, cursor: "pointer",
+                      border: `1px solid ${filtroMes.includes(m) ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.2)"}`,
+                      background: filtroMes.includes(m) ? "rgba(255,255,255,0.25)" : "transparent",
+                      color: filtroMes.includes(m) ? "#fff" : "rgba(255,255,255,0.6)",
+                      fontWeight: filtroMes.includes(m) ? 700 : 400, transition: "all 0.15s"
+                    }}>{m}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Gerente */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 6 }}>GERENTE</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {gerentes.map(g => (
+                  <button key={g} onClick={() => setFiltroGerente(toggle(g))}
+                    style={{
+                      padding: "3px 8px", borderRadius: 20, fontSize: 10, cursor: "pointer",
+                      border: `1px solid ${filtroGerente.includes(g) ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.2)"}`,
+                      background: filtroGerente.includes(g) ? "rgba(255,255,255,0.25)" : "transparent",
+                      color: filtroGerente.includes(g) ? "#fff" : "rgba(255,255,255,0.6)",
+                      fontWeight: filtroGerente.includes(g) ? 700 : 400, transition: "all 0.15s"
+                    }}>{g}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Status */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 6 }}>STATUS</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {STATUS_OPTS.map(s => (
+                  <button key={s} onClick={() => setFiltroStatus(toggle(s))}
+                    style={{
+                      padding: "4px 10px", borderRadius: 6, fontSize: 11, cursor: "pointer", textAlign: "left",
+                      border: `1px solid ${filtroStatus.includes(s) ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.15)"}`,
+                      background: filtroStatus.includes(s) ? "rgba(255,255,255,0.18)" : "transparent",
+                      color: STATUS_COR_SIDEBAR[s] || "rgba(255,255,255,0.6)",
+                      fontWeight: filtroStatus.includes(s) ? 700 : 400, transition: "all 0.15s"
+                    }}>{s}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tipo */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 6 }}>TIPO</div>
+              <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}
+                style={{
+                  width: "100%", padding: "5px 8px", borderRadius: 6, boxSizing: "border-box",
+                  border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)",
+                  color: "#fff", fontSize: 12, outline: "none",
+                }}>
+                <option value="" style={{ color: C.cinzaEscuro }}>Todos os tipos</option>
+                {TIPO_OPTS.map(t => <option key={t} value={t} style={{ color: C.cinzaEscuro }}>{t}</option>)}
+              </select>
+            </div>
+
+            {/* Limpar */}
+            {temFiltro && (
+              <button onClick={() => { setBusca(""); setFiltroMes([]); setFiltroGerente([]); setFiltroStatus([]); setFiltroTipo(""); }}
+                style={{
+                  width: "100%", padding: "6px", borderRadius: 6, cursor: "pointer",
+                  border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)",
+                  color: "rgba(255,255,255,0.65)", fontSize: 11
+                }}>
+                ✕ Redefinir filtros
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Rodapé sidebar */}
-        <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.12)" }}>
-          <button onClick={carregarDados} style={{
-            display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderRadius: 6,
-            background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
-            color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500, width: "100%"
-          }}>
-            <span>↻</span> Atualizar dados
+        <div style={{ padding: menuAberto ? "10px 14px" : "10px 6px", borderTop: "1px solid rgba(255,255,255,0.12)" }}>
+          <button onClick={carregarDados} title="Atualizar dados"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: menuAberto ? "flex-start" : "center",
+              gap: 8, padding: menuAberto ? "7px 12px" : "7px 0",
+              borderRadius: 6, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
+              color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500, width: "100%"
+            }}>
+            <span>↻</span>
+            {menuAberto && <span>Atualizar dados</span>}
           </button>
-          {lastUpdate && (
+          {menuAberto && lastUpdate && (
             <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 5, textAlign: "center" }}>
               Atualizado às {lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
             </div>
           )}
-          {/* Assinatura */}
-          <div style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.1)", textAlign: "center" }}>
-            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: "0.04em" }}>desenvolvido por </span>
-            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", fontWeight: 600, letterSpacing: "0.02em" }}>Mariana Oliveira</span>
-          </div>
+          {menuAberto && (
+            <div style={{ marginTop: 12, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.1)", textAlign: "center" }}>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: "0.04em" }}>desenvolvido por </span>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", fontWeight: 600, letterSpacing: "0.02em" }}>Mariana Oliveira</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Conteúdo */}
+      {/* ── Conteúdo principal ───────────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* Header */}
         <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.borda}`, display: "flex", alignItems: "center", gap: 12, background: C.azul }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#fff" }}>{secaoAtual?.label}</h1>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 1 }}>
-              {secao === "gerencial" ? "Reajustes e negociações agrupados por cliente" : "Valores contratuais e ganhos por grupo de cliente"}
-            </div>
-          </div>
+          <h1 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#fff" }}>{secaoAtual?.label}</h1>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
             {loading && <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>⏳ Carregando…</span>}
             {erro && <span style={{ fontSize: 12, color: "#ffb3b3" }}>⚠ {erro}</span>}
@@ -732,9 +798,9 @@ export default function App() {
               <button onClick={carregarDados} style={{ padding: "8px 20px", borderRadius: 6, border: `1px solid ${C.azul}`, background: C.azulClaro, color: C.azul, cursor: "pointer", fontWeight: 600 }}>Tentar novamente</button>
             </div>
           ) : secao === "gerencial" ? (
-            <SecaoGerencial dados={dados} gerentes={gerentes} onUpdate={onUpdate} setToast={setToast} />
+            <SecaoGerencial dados={dados} onUpdate={onUpdate} setToast={setToast} filtros={filtros} />
           ) : (
-            <SecaoEconomico dados={dados} gerentes={gerentes} />
+            <SecaoEconomico dados={dados} filtros={filtros} />
           )}
         </div>
       </div>
