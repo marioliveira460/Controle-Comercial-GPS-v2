@@ -1045,13 +1045,20 @@ const SecaoEconomico = ({ dados, filtros }) => {
   const totalFinal = useMemo(() => filtrado.reduce((s, d) => s + num(d.valorFinal), 0), [filtrado]);
   const totalGanho = totalFinal - totalAtual;
   const pctGlobal = totalAtual > 0 ? (totalGanho / totalAtual) * 100 : 0;
+  const ganhoEstimado = useMemo(() => filtrado
+    .filter(d => d.dataAprov && d.dataAprov.trim() !== "")
+    .reduce((s, d) => {
+      const vf = num(d.valorFinal);
+      const va = num(d.valorAtual);
+      return s + (vf && va ? vf - va : 0);
+    }, 0), [filtrado]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
         <KpiCard label="Valor Total dos Contratos" value={brlFmt(totalAtual)} color={C.azul} />
         <KpiCard label="Valor Final / Pleito" value={brlFmt(totalFinal)} color={C.verde} />
-        <KpiCard label="Ganho Estimado" value={brlFmt(totalGanho)} color={totalGanho >= 0 ? C.verde : C.vermelho} />
+        <KpiCard label="Ganho Estimado (concluídos)" value={brlFmt(ganhoEstimado)} color={ganhoEstimado >= 0 ? C.verde : C.vermelho} />
       </div>
       {grupos.map(([grupo, rows]) => {
         const gAtual = rows.reduce((s, d) => s + num(d.valorAtual), 0);
