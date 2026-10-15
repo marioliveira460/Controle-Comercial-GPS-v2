@@ -446,16 +446,15 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
 
   const negociacoesCriticas = useMemo(() => {
     const hoje = new Date();
-    return filtrado
+    const map = {};
+    filtrado
       .filter(d => parseData(d.inicioNeg) && !parseData(d.dataAprov))
-      .map(d => ({
-        cr: d.cr,
-        descri: d.descri,
-        grupoCliente: d.grupoCliente,
-        dias: diasEntre(parseData(d.inicioNeg), hoje),
-      }))
-      .sort((a, b) => b.dias - a.dias)
-      .slice(0, 6);
+      .forEach(d => {
+        const g = d.grupoCliente || "Sem Grupo";
+        const dias = diasEntre(parseData(d.inicioNeg), hoje);
+        if (!map[g] || dias > map[g].dias) map[g] = { grupoCliente: g, dias };
+      });
+    return Object.values(map).sort((a, b) => b.dias - a.dias).slice(0, 6);
   }, [filtrado]);
 
   const semaforo = (dias) => {
@@ -493,7 +492,34 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
           const cor = STATUS_COR[st] || { color: C.cinzaMedio, bg: "#f0f0f0" };
           return <KpiCard key={st} label={st} value={c} color={cor.color} />;
         })}
-        {/* Card negociações críticas */}
+        {/* Card tipos de negócio — MEIO */}
+        {kpiTipo.length > 0 && (
+          <div style={{
+            background: C.bgCard, borderRadius: 10, padding: "16px 20px",
+            border: `1px solid ${C.borda}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+            borderTop: `3px solid ${C.cinzaMedio}`, gridColumn: "span 2"
+          }}>
+            <div style={{ fontSize: 12, color: C.cinzaClaro, fontWeight: 500, marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${C.borda}` }}>
+              Tipo de Negócio
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {kpiTipo.map(([tipo, qtd]) => {
+                const cor = TIPO_COR[tipo] || C.cinzaMedio;
+                const pct = filtrado.length > 0 ? Math.round((qtd / filtrado.length) * 100) : 0;
+                return (
+                  <div key={tipo} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: cor, flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 12, color: C.cinzaMedio }}>{tipo}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: cor, minWidth: 20, textAlign: "right" }}>{qtd}</span>
+                    <span style={{ fontSize: 10, color: C.cinzaClaro, minWidth: 30, textAlign: "right" }}>{pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Card negociações críticas — DIREITA */}
         {negociacoesCriticas.length > 0 && (
           <div style={{
             background: C.bgCard, borderRadius: 10, padding: "16px 20px",
@@ -506,19 +532,13 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
               <span style={{ fontSize: 10, color: C.cinzaClaro, marginLeft: "auto" }}>dias em aberto</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {negociacoesCriticas.map(({ cr, descri, grupoCliente, dias }) => {
+              {negociacoesCriticas.map(({ grupoCliente, dias }) => {
                 const s = semaforo(dias);
                 return (
-                  <div key={cr} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div key={grupoCliente} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0, boxShadow: `0 0 0 3px ${s.bg}` }} />
-                    <span style={{ flex: 1, fontSize: 11, color: C.cinzaEscuro, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      <span style={{ fontWeight: 600 }}>{grupoCliente}</span>
-                      {descri && <span style={{ color: C.cinzaClaro }}> · {descri}</span>}
-                    </span>
-                    <span style={{
-                      fontSize: 12, fontWeight: 800, color: s.color,
-                      minWidth: 28, textAlign: "right"
-                    }}>{dias}d</span>
+                    <span style={{ flex: 1, fontSize: 12, color: C.cinzaEscuro, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{grupoCliente}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: s.color, minWidth: 28, textAlign: "right" }}>{dias}d</span>
                   </div>
                 );
               })}
@@ -534,33 +554,6 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
           </div>
         )}
 
-        {/* Card tipos de negócio */}
-        {kpiTipo.length > 0 && (
-          <div style={{
-            background: C.bgCard, borderRadius: 10, padding: "16px 20px",
-            border: `1px solid ${C.borda}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-            borderTop: `3px solid ${C.cinzaMedio}`, gridColumn: "span 2"
-          }}>
-            <div style={{ fontSize: 12, color: C.cinzaClaro, fontWeight: 500, marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${C.borda}` }}>
-              Tipo de Negócio
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {kpiTipo.map(([tipo, qtd]) => {
-                const cor = TIPO_COR[tipo] || C.cinzaMedio;
-                const bg = TIPO_BG[tipo] || "#f0f0f0";
-                const pct = filtrado.length > 0 ? Math.round((qtd / filtrado.length) * 100) : 0;
-                return (
-                  <div key={tipo} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: cor, flexShrink: 0 }} />
-                    <span style={{ flex: 1, fontSize: 12, color: C.cinzaMedio }}>{tipo}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: cor, minWidth: 20, textAlign: "right" }}>{qtd}</span>
-                    <span style={{ fontSize: 10, color: C.cinzaClaro, minWidth: 30, textAlign: "right" }}>{pct}%</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Tabela por grupo */}
