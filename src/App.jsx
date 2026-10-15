@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 const GID_GERENCIAL = "2073814116";
@@ -6,30 +6,26 @@ const SHEET_API = "/api/sheet";
 const UPDATE_API = "/api/update-sheet";
 
 const TIPO_OPTS = ["Reajuste", "DT", "Renovação", "Negócio Perdido", "Upselling", "Alteração de Escopo"];
-const STATUS_OPTS = ["Em Negociação", "Em Negociação Antecipada", "Aguardando Reajuste", "Concluído", "Negócio Perdido", "Aprovado", "Pendente Cliente"];
+const STATUS_OPTS = ["Em Negociação", "Em Negociação Antecipada", "Aguardando Reajuste", "Concluído", "Negócio Perdido", "Aprovado", "Pendente Cliente", "Pendente GPS"];
 
-// Paleta In-Haus GPS
 const C = {
-  azul:      "#006080",
-  azulMedio: "#007fa3",
-  azulClaro: "#e6f4f8",
-  cinzaEscuro:"#2d3748",
-  cinzaMedio: "#4a5568",
-  cinzaClaro: "#718096",
-  borda:     "#d1dde3",
-  bg:        "#f5f8fa",
-  bgCard:    "#ffffff",
-  bgSidebar: "#ffffff",
-  verde:     "#0a8a5c",
-  verdeClaro:"#e6f7f1",
-  vermelho:  "#c0392b",
+  azul:        "#006080",
+  azulMedio:   "#007fa3",
+  azulClaro:   "#e6f4f8",
+  cinzaEscuro: "#2d3748",
+  cinzaMedio:  "#4a5568",
+  cinzaClaro:  "#718096",
+  borda:       "#d1dde3",
+  bg:          "#ffffff",
+  bgCard:      "#ffffff",
+  verde:       "#0a8a5c",
+  verdeClaro:  "#e6f7f1",
+  vermelho:    "#c0392b",
   vermelhoClaro:"#fdf0ee",
-  laranja:   "#c96b00",
+  laranja:     "#c96b00",
   laranjaClaro:"#fef3e2",
-  roxo:      "#6c3fb5",
-  roxoClaro: "#f0ebfb",
-  ciano:     "#007fa3",
-  cianoClaro:"#e6f4f8",
+  roxo:        "#6c3fb5",
+  roxoClaro:   "#f0ebfb",
 };
 
 const TIPO_COR = {
@@ -38,16 +34,26 @@ const TIPO_COR = {
   "Renovação":           C.verde,
   "Negócio Perdido":     C.vermelho,
   "Upselling":           C.laranja,
-  "Alteração de Escopo": C.ciano,
+  "Alteração de Escopo": C.azulMedio,
 };
-
 const TIPO_BG = {
   "Reajuste":            C.azulClaro,
   "DT":                  C.roxoClaro,
   "Renovação":           C.verdeClaro,
   "Negócio Perdido":     C.vermelhoClaro,
   "Upselling":           C.laranjaClaro,
-  "Alteração de Escopo": C.cianoClaro,
+  "Alteração de Escopo": C.azulClaro,
+};
+
+const STATUS_COR = {
+  "Concluído":                { color: C.verde,    bg: C.verdeClaro },
+  "Aprovado":                 { color: C.verde,    bg: C.verdeClaro },
+  "Pendente Cliente":         { color: C.laranja,  bg: C.laranjaClaro },
+  "Pendente GPS":             { color: C.azul,     bg: C.azulClaro },
+  "Negócio Perdido":          { color: C.vermelho, bg: C.vermelhoClaro },
+  "Em Negociação":            { color: C.azulMedio,bg: C.azulClaro },
+  "Em Negociação Antecipada": { color: C.roxo,     bg: C.roxoClaro },
+  "Aguardando Reajuste":      { color: C.laranja,  bg: C.laranjaClaro },
 };
 
 // ─── Utilitários ─────────────────────────────────────────────────────────────
@@ -162,14 +168,14 @@ const parseGerencial = (values) => {
   }));
 };
 
-// ─── Logo In-Haus inline ─────────────────────────────────────────────────────
-const LogoInHaus = ({ small }) => (
-  <div style={{ lineHeight: 1, textAlign: "center" }}>
-    <div style={{ display: "flex", alignItems: "baseline", gap: 0, justifyContent: "center" }}>
-      <span style={{ fontWeight: 700, fontSize: small ? 18 : 22, color: "#fff", letterSpacing: "-0.5px", fontFamily: "'Segoe UI', Arial, sans-serif" }}>In</span>
-      <span style={{ fontWeight: 700, fontSize: small ? 18 : 22, color: "rgba(255,255,255,0.75)", letterSpacing: "-0.5px", fontFamily: "'Segoe UI', Arial, sans-serif" }}>·Haus</span>
+// ─── Logo ─────────────────────────────────────────────────────────────────────
+const LogoInHaus = () => (
+  <div style={{ textAlign: "center", lineHeight: 1 }}>
+    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center" }}>
+      <span style={{ fontWeight: 700, fontSize: 20, color: "#fff", letterSpacing: "-0.5px", fontFamily: "'Segoe UI', Arial, sans-serif" }}>In</span>
+      <span style={{ fontWeight: 700, fontSize: 20, color: "rgba(255,255,255,0.7)", letterSpacing: "-0.5px", fontFamily: "'Segoe UI', Arial, sans-serif" }}>·Haus</span>
     </div>
-    <div style={{ fontSize: small ? 8 : 10, color: "rgba(255,255,255,0.5)", letterSpacing: "0.22em", marginTop: 2, fontWeight: 400, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
+    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", letterSpacing: "0.22em", marginTop: 2, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
       logística
     </div>
   </div>
@@ -238,8 +244,148 @@ const EditableCell = ({ value, opts, onSave, type = "select" }) => {
   );
 };
 
-// ─── KPI Card ────────────────────────────────────────────────────────────────
-const KpiCard = ({ label, value, color, sub }) => (
+// ─── Painel de filtros (popover) ──────────────────────────────────────────────
+const FiltrosPopover = ({ filtros, setFiltros, meses, gerentes, onLimpar }) => {
+  const { filtroMes, filtroGerente, filtroStatus, filtroTipo, busca } = filtros;
+  const toggle = (key, val) => setFiltros(f => {
+    const s = new Set(f[key]); s.has(val) ? s.delete(val) : s.add(val);
+    return { ...f, [key]: [...s] };
+  });
+
+  const labelStyle = { fontSize: 10, fontWeight: 700, color: C.cinzaClaro, letterSpacing: "0.08em", marginBottom: 6, display: "block" };
+  const chipStyle = (ativo) => ({
+    padding: "3px 9px", borderRadius: 20, fontSize: 11, cursor: "pointer",
+    border: `1px solid ${ativo ? C.azul : C.borda}`,
+    background: ativo ? C.azul : "#f8fafc",
+    color: ativo ? "#fff" : C.cinzaMedio,
+    fontWeight: ativo ? 600 : 400, transition: "all 0.12s",
+    whiteSpace: "nowrap"
+  });
+
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", gap: 16,
+      padding: "4px 0"
+    }}>
+      {/* Busca */}
+      <div>
+        <span style={labelStyle}>BUSCA</span>
+        <input
+          type="text" placeholder="CR, cliente, descrição…"
+          value={busca} onChange={e => setFiltros(f => ({ ...f, busca: e.target.value }))}
+          style={{
+            width: "100%", padding: "6px 10px", borderRadius: 6, boxSizing: "border-box",
+            border: `1px solid ${C.borda}`, background: "#f8fafc",
+            color: C.cinzaEscuro, fontSize: 12, outline: "none"
+          }}
+        />
+      </div>
+
+      {/* Mês */}
+      <div>
+        <span style={labelStyle}>MÊS</span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {meses.map(m => (
+            <button key={m} onClick={() => toggle("filtroMes", m)} style={chipStyle(filtroMes.includes(m))}>{m}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Gerente */}
+      <div>
+        <span style={labelStyle}>GERENTE REGIONAL</span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {gerentes.map(g => (
+            <button key={g} onClick={() => toggle("filtroGerente", g)} style={chipStyle(filtroGerente.includes(g))}>{g}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Status */}
+      <div>
+        <span style={labelStyle}>STATUS</span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {STATUS_OPTS.map(s => {
+            const cor = STATUS_COR[s];
+            const ativo = filtroStatus.includes(s);
+            return (
+              <button key={s} onClick={() => toggle("filtroStatus", s)} style={{
+                padding: "3px 9px", borderRadius: 20, fontSize: 11, cursor: "pointer",
+                border: `1px solid ${ativo ? (cor?.color || C.azul) : C.borda}`,
+                background: ativo ? (cor?.bg || C.azulClaro) : "#f8fafc",
+                color: ativo ? (cor?.color || C.azul) : C.cinzaMedio,
+                fontWeight: ativo ? 700 : 400, transition: "all 0.12s"
+              }}>{s}</button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tipo */}
+      <div>
+        <span style={labelStyle}>TIPO DE NEGÓCIO</span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {["Todos", ...TIPO_OPTS].map(t => {
+            const ativo = t === "Todos" ? !filtroTipo : filtroTipo === t;
+            return (
+              <button key={t} onClick={() => setFiltros(f => ({ ...f, filtroTipo: t === "Todos" ? "" : t }))}
+                style={chipStyle(ativo)}>{t}</button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Limpar */}
+      <button onClick={onLimpar} style={{
+        padding: "7px", borderRadius: 6, border: `1px solid ${C.borda}`,
+        background: "#f8fafc", color: C.cinzaMedio, fontSize: 12, cursor: "pointer", width: "100%"
+      }}>✕ Limpar filtros</button>
+    </div>
+  );
+};
+
+// ─── KPI Card Total ───────────────────────────────────────────────────────────
+const KpiCardTotal = ({ total, kpiStatus }) => {
+  const destaques = [
+    { key: "Concluído",       label: "Concluídos",       ...STATUS_COR["Concluído"] },
+    { key: "Aprovado",        label: "Aprovados",         ...STATUS_COR["Aprovado"] },
+    { key: "Pendente Cliente",label: "Pend. Cliente",     ...STATUS_COR["Pendente Cliente"] },
+    { key: "Pendente GPS",    label: "Pend. GPS",         ...STATUS_COR["Pendente GPS"] },
+    { key: "Negócio Perdido", label: "Neg. Perdido",      ...STATUS_COR["Negócio Perdido"] },
+  ];
+
+  return (
+    <div style={{
+      background: C.bgCard, borderRadius: 10, padding: "14px 18px",
+      border: `1px solid ${C.borda}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+      borderTop: `3px solid ${C.azul}`, gridColumn: "span 2"
+    }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 10 }}>
+        <div style={{ fontSize: 11, color: C.cinzaClaro, fontWeight: 500 }}>Total de CRs</div>
+        <div style={{ fontSize: 28, fontWeight: 800, color: C.azul, lineHeight: 1 }}>{total}</div>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {destaques.map(({ key, label, color, bg }) => {
+          const qtd = kpiStatus[key] || 0;
+          if (!qtd) return null;
+          return (
+            <div key={key} style={{
+              display: "flex", alignItems: "center", gap: 5,
+              background: bg, borderRadius: 6, padding: "3px 10px",
+              border: `1px solid ${color}30`
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color }}>{qtd}</span>
+              <span style={{ fontSize: 10, color, fontWeight: 500 }}>{label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ─── KPI Card simples ─────────────────────────────────────────────────────────
+const KpiCard = ({ label, value, color }) => (
   <div style={{
     background: C.bgCard, borderRadius: 10, padding: "14px 18px",
     border: `1px solid ${C.borda}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
@@ -247,7 +393,6 @@ const KpiCard = ({ label, value, color, sub }) => (
   }}>
     <div style={{ fontSize: 11, color: C.cinzaClaro, marginBottom: 4, fontWeight: 500 }}>{label}</div>
     <div style={{ fontSize: 22, fontWeight: 800, color: color || C.cinzaEscuro, lineHeight: 1 }}>{value}</div>
-    {sub && <div style={{ fontSize: 10, color: C.cinzaClaro, marginTop: 3 }}>{sub}</div>}
   </div>
 );
 
@@ -278,7 +423,6 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
   }, [filtrado]);
 
-  // KPIs por status
   const kpiStatus = useMemo(() => {
     const m = {};
     filtrado.forEach(d => {
@@ -288,16 +432,13 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
     return m;
   }, [filtrado]);
 
-  const STATUS_COR = {
-    "Concluído":                { color: C.verde,    bg: C.verdeClaro },
-    "Aprovado":                 { color: C.verde,    bg: C.verdeClaro },
-    "Pendente Cliente":         { color: C.laranja,  bg: C.laranjaClaro },
-    "Pendente GPS":             { color: C.azul,     bg: C.azulClaro },
-    "Negócio Perdido":          { color: C.vermelho, bg: C.vermelhoClaro },
-    "Em Negociação":            { color: C.azulMedio,bg: C.azulClaro },
-    "Em Negociação Antecipada": { color: C.roxo,     bg: C.roxoClaro },
-    "Aguardando Reajuste":      { color: C.laranja,  bg: C.laranjaClaro },
-  };
+  // KPIs adicionais (excluindo os que já estão no card total)
+  const kpiExtras = useMemo(() => {
+    const ignorar = new Set(["Concluído","Aprovado","Pendente Cliente","Pendente GPS","Negócio Perdido"]);
+    return Object.entries(kpiStatus)
+      .filter(([st]) => !ignorar.has(st))
+      .sort((a, b) => b[1] - a[1]);
+  }, [kpiStatus]);
 
   const salvar = async (row, campo, valor) => {
     try {
@@ -311,12 +452,12 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
   };
 
   return (
-    <div style={{ flex: 1, overflowY: "auto" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10, marginBottom: 16 }}>
-        <KpiCard label="Total de CRs" value={filtrado.length} color={C.azul} />
-        {Object.entries(kpiStatus).sort((a,b) => b[1]-a[1]).map(([st, c]) => {
-          const cor = STATUS_COR[st] || { color: C.cinzaMedio, bg: C.bg };
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+        <KpiCardTotal total={filtrado.length} kpiStatus={kpiStatus} />
+        {kpiExtras.map(([st, c]) => {
+          const cor = STATUS_COR[st] || { color: C.cinzaMedio, bg: "#f0f0f0" };
           return <KpiCard key={st} label={st} value={c} color={cor.color} />;
         })}
       </div>
@@ -330,9 +471,9 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
         const temConcluido = statusGrupo.every(s => s?.includes("Concluído") || s?.includes("Aprovado"));
 
         return (
-          <div key={grupo} style={{ background: C.bgCard, borderRadius: 10, marginBottom: 8, border: `1px solid ${C.borda}`, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <div key={grupo} style={{ background: C.bgCard, borderRadius: 10, border: `1px solid ${C.borda}`, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
             <div onClick={() => setExpandido(p => ({ ...p, [grupo]: !aberto }))}
-              style={{ padding: "11px 16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", borderBottom: aberto ? `1px solid ${C.borda}` : "none" }}>
+              style={{ padding: "11px 16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", borderBottom: aberto ? `1px solid ${C.borda}` : "none", userSelect: "none" }}>
               <span style={{ color: C.cinzaClaro, fontSize: 10 }}>{aberto ? "▼" : "▶"}</span>
               <span style={{ fontWeight: 700, color: C.cinzaEscuro, fontSize: 13 }}>{grupo}</span>
               <span style={{ fontSize: 11, color: C.cinzaClaro, fontWeight: 400 }}>{rows.length} contrato{rows.length !== 1 ? "s" : ""}</span>
@@ -359,7 +500,6 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
                       const dias = diasEntre(inicio, aprov || new Date());
                       const concluido = !!aprov;
                       const stTemp = statusTemporal(row);
-
                       return (
                         <tr key={row.cr + i} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
                           <td style={{ padding: "8px 12px", color: C.cinzaMedio, fontFamily: "monospace", fontSize: 11 }}>{row.cr}</td>
@@ -418,8 +558,6 @@ const SecaoEconomico = ({ dados, filtros }) => {
   const { filtroGerente, filtroMes, filtroTipo } = filtros;
   const [expandido, setExpandido] = useState({});
 
-  const tipos = useMemo(() => [...new Set(dados.map(d => d.tipo).filter(Boolean))].sort(), [dados]);
-
   const filtrado = useMemo(() => dados.filter(d => {
     if (filtroMes.length && !filtroMes.includes(d.mes)) return false;
     if (filtroGerente.length && !filtroGerente.includes(d.gerente)) return false;
@@ -443,25 +581,23 @@ const SecaoEconomico = ({ dados, filtros }) => {
   const pctGlobal = totalAtual > 0 ? (totalGanho / totalAtual) * 100 : 0;
 
   return (
-    <div style={{ flex: 1, overflowY: "auto" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
         <KpiCard label="Valor Total dos Contratos" value={brlFmt(totalAtual)} color={C.azul} />
         <KpiCard label="Valor Final / Pleito" value={brlFmt(totalFinal)} color={C.verde} />
         <KpiCard label="Ganho Estimado" value={brlFmt(totalGanho)} color={totalGanho >= 0 ? C.verde : C.vermelho} />
         <KpiCard label="Reajuste Médio" value={`${pctGlobal.toFixed(2).replace(".", ",")}%`} color={C.laranja} />
       </div>
-
       {grupos.map(([grupo, rows]) => {
         const gAtual = rows.reduce((s, d) => s + num(d.valorAtual), 0);
         const gFinal = rows.reduce((s, d) => s + num(d.valorFinal), 0);
         const gGanho = gFinal - gAtual;
         const gPct = gAtual > 0 ? (gGanho / gAtual) * 100 : 0;
         const aberto = expandido[grupo] !== false;
-
         return (
-          <div key={grupo} style={{ background: C.bgCard, borderRadius: 10, marginBottom: 8, border: `1px solid ${C.borda}`, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <div key={grupo} style={{ background: C.bgCard, borderRadius: 10, border: `1px solid ${C.borda}`, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
             <div onClick={() => setExpandido(p => ({ ...p, [grupo]: !aberto }))}
-              style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", borderBottom: aberto ? `1px solid ${C.borda}` : "none" }}>
+              style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", borderBottom: aberto ? `1px solid ${C.borda}` : "none", userSelect: "none" }}>
               <span style={{ color: C.cinzaClaro, fontSize: 10 }}>{aberto ? "▼" : "▶"}</span>
               <span style={{ fontWeight: 700, color: C.cinzaEscuro, fontSize: 13, flex: 1 }}>{grupo}</span>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20, textAlign: "right" }}>
@@ -526,37 +662,41 @@ const SecaoEconomico = ({ dados, filtros }) => {
 export default function App() {
   const [secao, setSecao] = useState("gerencial");
   const [menuAberto, setMenuAberto] = useState(true);
+  const [filtrosAberto, setFiltrosAberto] = useState(false);
+  const filtrosRef = useRef(null);
+
   const [dados, setDados] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
   const [toast, setToast] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
 
-  // Filtros globais (compartilhados entre seções)
-  const [busca, setBusca] = useState("");
-  const [filtroMes, setFiltroMes] = useState([]);
-  const [filtroGerente, setFiltroGerente] = useState([]);
-  const [filtroStatus, setFiltroStatus] = useState([]);
-  const [filtroTipo, setFiltroTipo] = useState("");
+  const [filtros, setFiltros] = useState({
+    busca: "", filtroMes: [], filtroGerente: [], filtroStatus: [], filtroTipo: ""
+  });
 
-  const filtros = { busca, filtroMes, filtroGerente, filtroStatus, filtroTipo };
-  const temFiltro = busca || filtroMes.length || filtroGerente.length || filtroStatus.length || filtroTipo;
+  const temFiltro = filtros.busca || filtros.filtroMes.length || filtros.filtroGerente.length || filtros.filtroStatus.length || filtros.filtroTipo;
 
   const carregarDados = useCallback(async () => {
-    setLoading(true);
-    setErro(null);
+    setLoading(true); setErro(null);
     try {
       const values = await fetchSheet(GID_GERENCIAL);
       setDados(parseGerencial(values));
       setLastUpdate(new Date());
-    } catch (e) {
-      setErro(e.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { setErro(e.message); }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
+
+  // Fechar filtros ao clicar fora
+  useEffect(() => {
+    const handler = (e) => {
+      if (filtrosRef.current && !filtrosRef.current.contains(e.target)) setFiltrosAberto(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const gerentes = useMemo(() => [...new Set(dados.map(d => d.gerente).filter(Boolean))].sort(), [dados]);
   const meses = useMemo(() => [...new Set(dados.map(d => d.mes).filter(Boolean))].sort((a, b) => mesNum(a) - mesNum(b)), [dados]);
@@ -570,7 +710,7 @@ export default function App() {
     }));
   }, []);
 
-  const toggle = (val) => (prev) => { const s = new Set(prev); s.has(val) ? s.delete(val) : s.add(val); return [...s]; };
+  const limparFiltros = () => setFiltros({ busca: "", filtroMes: [], filtroGerente: [], filtroStatus: [], filtroTipo: "" });
 
   const SECOES = [
     { id: "gerencial", label: "Gestão de Reajustes Contratuais", icon: "📋" },
@@ -578,65 +718,54 @@ export default function App() {
   ];
   const secaoAtual = SECOES.find(s => s.id === secao);
 
-  // Label do filtro de status com cor
-  const STATUS_COR_SIDEBAR = {
-    "Concluído":                "rgba(10,138,92,0.8)",
-    "Aprovado":                 "rgba(10,138,92,0.8)",
-    "Pendente Cliente":         "rgba(201,107,0,0.8)",
-    "Pendente GPS":             "rgba(255,255,255,0.7)",
-    "Negócio Perdido":          "rgba(192,57,43,0.8)",
-    "Em Negociação":            "rgba(255,255,255,0.65)",
-    "Em Negociação Antecipada": "rgba(176,148,255,0.9)",
-    "Aguardando Reajuste":      "rgba(201,107,0,0.8)",
-  };
-
   return (
-    <div style={{ display: "flex", height: "100vh", background: C.bg, color: C.cinzaEscuro, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "100vh", background: "#f5f8fa", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", overflow: "hidden" }}>
 
-      {/* ── Sidebar retrátil ─────────────────────────────────────────────── */}
+      {/* ── Sidebar ───────────────────────────────────────────────────────── */}
       <div style={{
-        width: menuAberto ? 240 : 52, flexShrink: 0,
-        background: C.azul, display: "flex", flexDirection: "column",
-        transition: "width 0.22s cubic-bezier(.4,0,.2,1)", overflow: "hidden",
-        position: "relative"
+        width: menuAberto ? 220 : 56, flexShrink: 0, background: C.azul,
+        display: "flex", flexDirection: "column",
+        transition: "width 0.2s cubic-bezier(.4,0,.2,1)", overflow: "hidden"
       }}>
-        {/* Logo + toggle */}
+        {/* Logo + pin */}
         <div style={{
-          padding: menuAberto ? "18px 14px 14px" : "18px 0 14px",
+          padding: "16px 12px",
           borderBottom: "1px solid rgba(255,255,255,0.12)",
-          display: "flex", flexDirection: "column", alignItems: "center", gap: 10
+          display: "flex", alignItems: "center",
+          gap: 10, justifyContent: menuAberto ? "space-between" : "center"
         }}>
           {menuAberto && <LogoInHaus />}
           <button
             onClick={() => setMenuAberto(v => !v)}
-            title={menuAberto ? "Recolher menu" : "Expandir menu"}
+            title={menuAberto ? "Recolher" : "Expandir"}
             style={{
               background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
               borderRadius: 6, color: "#fff", cursor: "pointer",
-              width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 13, flexShrink: 0, transition: "background 0.15s"
+              width: 28, height: 28, flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 14, transition: "background 0.15s"
             }}
             onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.22)"}
             onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.12)"}
           >
-            {menuAberto ? "◀" : "▶"}
+            📌
           </button>
         </div>
 
         {/* Nav */}
-        <nav style={{ padding: menuAberto ? "10px 8px" : "10px 6px" }}>
+        <nav style={{ padding: "10px 6px" }}>
           {SECOES.map(({ id, label, icon }) => (
             <button key={id} onClick={() => setSecao(id)} title={!menuAberto ? label : undefined} style={{
-              display: "flex", alignItems: "center", gap: menuAberto ? 10 : 0,
+              display: "flex", alignItems: "center",
+              gap: menuAberto ? 10 : 0,
               justifyContent: menuAberto ? "flex-start" : "center",
               padding: menuAberto ? "10px 12px" : "10px 0",
-              borderRadius: 7,
+              borderRadius: 7, width: "100%", marginBottom: 2,
               background: secao === id ? "rgba(255,255,255,0.15)" : "transparent",
               border: "none", color: secao === id ? "#fff" : "rgba(255,255,255,0.65)",
               cursor: "pointer", fontSize: 13, fontWeight: secao === id ? 600 : 400,
-              textAlign: "left", width: "100%", marginBottom: 2, transition: "all 0.15s",
+              transition: "all 0.15s", whiteSpace: "nowrap", overflow: "hidden",
               borderLeft: menuAberto ? (secao === id ? "3px solid rgba(255,255,255,0.8)" : "3px solid transparent") : "none",
-              whiteSpace: "nowrap", overflow: "hidden"
             }}>
               <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
               {menuAberto && <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>}
@@ -644,149 +773,107 @@ export default function App() {
           ))}
         </nav>
 
-        {/* Filtros — apenas quando expandido */}
-        {menuAberto && (
-          <div style={{ flex: 1, overflowY: "auto", padding: "0 10px 10px" }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: "0.12em", marginBottom: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-              FILTROS
-            </div>
+        <div style={{ flex: 1 }} />
 
-            {/* Busca */}
-            <div style={{ marginBottom: 12 }}>
-              <input
-                type="text" placeholder="Buscar CR, cliente…" value={busca}
-                onChange={e => setBusca(e.target.value)}
-                style={{
-                  width: "100%", padding: "6px 10px", borderRadius: 6, boxSizing: "border-box",
-                  border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)",
-                  color: "#fff", fontSize: 12, outline: "none",
-                }}
-              />
-            </div>
-
-            {/* Mês */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 6 }}>MÊS</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                {meses.map(m => (
-                  <button key={m} onClick={() => setFiltroMes(toggle(m))}
-                    style={{
-                      padding: "3px 8px", borderRadius: 20, fontSize: 10, cursor: "pointer",
-                      border: `1px solid ${filtroMes.includes(m) ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.2)"}`,
-                      background: filtroMes.includes(m) ? "rgba(255,255,255,0.25)" : "transparent",
-                      color: filtroMes.includes(m) ? "#fff" : "rgba(255,255,255,0.6)",
-                      fontWeight: filtroMes.includes(m) ? 700 : 400, transition: "all 0.15s"
-                    }}>{m}</button>
-                ))}
-              </div>
-            </div>
-
-            {/* Gerente */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 6 }}>GERENTE</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                {gerentes.map(g => (
-                  <button key={g} onClick={() => setFiltroGerente(toggle(g))}
-                    style={{
-                      padding: "3px 8px", borderRadius: 20, fontSize: 10, cursor: "pointer",
-                      border: `1px solid ${filtroGerente.includes(g) ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.2)"}`,
-                      background: filtroGerente.includes(g) ? "rgba(255,255,255,0.25)" : "transparent",
-                      color: filtroGerente.includes(g) ? "#fff" : "rgba(255,255,255,0.6)",
-                      fontWeight: filtroGerente.includes(g) ? 700 : 400, transition: "all 0.15s"
-                    }}>{g}</button>
-                ))}
-              </div>
-            </div>
-
-            {/* Status */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 6 }}>STATUS</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {STATUS_OPTS.map(s => (
-                  <button key={s} onClick={() => setFiltroStatus(toggle(s))}
-                    style={{
-                      padding: "4px 10px", borderRadius: 6, fontSize: 11, cursor: "pointer", textAlign: "left",
-                      border: `1px solid ${filtroStatus.includes(s) ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.15)"}`,
-                      background: filtroStatus.includes(s) ? "rgba(255,255,255,0.18)" : "transparent",
-                      color: STATUS_COR_SIDEBAR[s] || "rgba(255,255,255,0.6)",
-                      fontWeight: filtroStatus.includes(s) ? 700 : 400, transition: "all 0.15s"
-                    }}>{s}</button>
-                ))}
-              </div>
-            </div>
-
-            {/* Tipo */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 6 }}>TIPO</div>
-              <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}
-                style={{
-                  width: "100%", padding: "5px 8px", borderRadius: 6, boxSizing: "border-box",
-                  border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)",
-                  color: "#fff", fontSize: 12, outline: "none",
-                }}>
-                <option value="" style={{ color: C.cinzaEscuro }}>Todos os tipos</option>
-                {TIPO_OPTS.map(t => <option key={t} value={t} style={{ color: C.cinzaEscuro }}>{t}</option>)}
-              </select>
-            </div>
-
-            {/* Limpar */}
-            {temFiltro && (
-              <button onClick={() => { setBusca(""); setFiltroMes([]); setFiltroGerente([]); setFiltroStatus([]); setFiltroTipo(""); }}
-                style={{
-                  width: "100%", padding: "6px", borderRadius: 6, cursor: "pointer",
-                  border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)",
-                  color: "rgba(255,255,255,0.65)", fontSize: 11
-                }}>
-                ✕ Redefinir filtros
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Rodapé sidebar */}
-        <div style={{ padding: menuAberto ? "10px 14px" : "10px 6px", borderTop: "1px solid rgba(255,255,255,0.12)" }}>
-          <button onClick={carregarDados} title="Atualizar dados"
-            style={{
-              display: "flex", alignItems: "center", justifyContent: menuAberto ? "flex-start" : "center",
-              gap: 8, padding: menuAberto ? "7px 12px" : "7px 0",
-              borderRadius: 6, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
-              color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500, width: "100%"
-            }}>
-            <span>↻</span>
-            {menuAberto && <span>Atualizar dados</span>}
+        {/* Rodapé */}
+        <div style={{ padding: menuAberto ? "10px 12px" : "10px 6px", borderTop: "1px solid rgba(255,255,255,0.12)" }}>
+          <button onClick={carregarDados} title="Atualizar dados" style={{
+            display: "flex", alignItems: "center", justifyContent: menuAberto ? "flex-start" : "center",
+            gap: 8, padding: menuAberto ? "7px 12px" : "7px 0",
+            borderRadius: 6, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)",
+            color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500, width: "100%"
+          }}>
+            <span>↻</span>{menuAberto && <span>Atualizar dados</span>}
           </button>
           {menuAberto && lastUpdate && (
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 5, textAlign: "center" }}>
-              Atualizado às {lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 4, textAlign: "center" }}>
+              {lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
             </div>
           )}
           {menuAberto && (
-            <div style={{ marginTop: 12, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.1)", textAlign: "center" }}>
-              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: "0.04em" }}>desenvolvido por </span>
-              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", fontWeight: 600, letterSpacing: "0.02em" }}>Mariana Oliveira</span>
+            <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.1)", textAlign: "center" }}>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.28)" }}>desenvolvido por </span>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>Mariana Oliveira</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Conteúdo principal ───────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* ── Área principal ────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+
         {/* Header */}
-        <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.borda}`, display: "flex", alignItems: "center", gap: 12, background: C.azul }}>
-          <h1 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#fff" }}>{secaoAtual?.label}</h1>
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-            {loading && <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>⏳ Carregando…</span>}
+        <div style={{
+          padding: "0 24px", height: 56, flexShrink: 0,
+          borderBottom: `1px solid ${C.borda}`,
+          display: "flex", alignItems: "center", gap: 16,
+          background: C.azul
+        }}>
+          {/* Título centralizado */}
+          <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#fff", flex: 1, textAlign: "center" }}>
+            {secaoAtual?.label}
+          </h1>
+
+          {/* Ações direita */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            {loading && <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>⏳</span>}
             {erro && <span style={{ fontSize: 12, color: "#ffb3b3" }}>⚠ {erro}</span>}
             {!loading && !erro && (
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", background: "rgba(255,255,255,0.12)", padding: "3px 10px", borderRadius: 20, fontWeight: 500 }}>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", background: "rgba(255,255,255,0.12)", padding: "3px 10px", borderRadius: 20 }}>
                 {dados.length} registros
               </span>
             )}
+
+            {/* Botão filtros */}
+            <div ref={filtrosRef} style={{ position: "relative" }}>
+              <button
+                onClick={() => setFiltrosAberto(v => !v)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "6px 12px", borderRadius: 7, cursor: "pointer",
+                  background: filtrosAberto ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.14)",
+                  border: `1px solid ${temFiltro ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.25)"}`,
+                  color: "#fff", fontSize: 12, fontWeight: 500, transition: "all 0.15s"
+                }}
+              >
+                <span style={{ fontSize: 14 }}>⚙</span>
+                <span>Filtros</span>
+                {temFiltro && (
+                  <span style={{
+                    background: "#fff", color: C.azul, borderRadius: "50%",
+                    width: 16, height: 16, fontSize: 10, fontWeight: 800,
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                  }}>
+                    {[filtros.filtroMes.length, filtros.filtroGerente.length, filtros.filtroStatus.length, filtros.filtroTipo ? 1 : 0, filtros.busca ? 1 : 0].reduce((a, b) => a + b, 0)}
+                  </span>
+                )}
+              </button>
+
+              {/* Popover filtros */}
+              {filtrosAberto && (
+                <div style={{
+                  position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 1000,
+                  background: "#fff", borderRadius: 12, width: 380,
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.14)", border: `1px solid ${C.borda}`,
+                  padding: "16px 18px", maxHeight: "80vh", overflowY: "auto"
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: C.cinzaEscuro }}>Filtros</span>
+                    <button onClick={() => setFiltrosAberto(false)} style={{ background: "none", border: "none", cursor: "pointer", color: C.cinzaClaro, fontSize: 16 }}>×</button>
+                  </div>
+                  <FiltrosPopover
+                    filtros={filtros} setFiltros={setFiltros}
+                    meses={meses} gerentes={gerentes}
+                    onLimpar={() => { limparFiltros(); setFiltrosAberto(false); }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Corpo */}
-        <div style={{ flex: 1, overflow: "hidden", padding: 16 }}>
+        {/* Corpo — scroll aqui */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
           {loading ? (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: C.cinzaClaro, gap: 10 }}>
               <span style={{ fontSize: 20 }}>⏳</span> Carregando dados da planilha…
