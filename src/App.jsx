@@ -1093,12 +1093,18 @@ export default function App() {
               justifyContent: menuAberto ? "flex-start" : "center",
               padding: menuAberto ? "10px 12px" : "10px 0",
               borderRadius: 7, width: "100%", marginBottom: 2,
-              background: secao === id ? "rgba(255,255,255,0.15)" : "transparent",
-              border: "none", color: secao === id ? "#fff" : "rgba(255,255,255,0.65)",
+              background: secao === id
+                ? "linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.32) 100%)"
+                : "transparent",
+              boxShadow: secao === id
+                ? "inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -2px 0 rgba(0,0,0,0.35), 0 3px 8px rgba(0,0,0,0.28)"
+                : "none",
+              border: secao === id ? "1px solid rgba(0,0,0,0.25)" : "1px solid transparent",
+              color: secao === id ? "#fff" : "rgba(255,255,255,0.6)",
               cursor: "pointer", fontSize: 13, fontWeight: secao === id ? 600 : 300,
               fontFamily: SERIF, letterSpacing: "0.03em",
               transition: "all 0.15s", whiteSpace: "nowrap", overflow: "hidden",
-              borderLeft: menuAberto ? (secao === id ? "3px solid rgba(255,255,255,0.8)" : "3px solid transparent") : "none",
+              borderLeft: menuAberto ? (secao === id ? "3px solid rgba(255,255,255,0.7)" : "3px solid transparent") : "none",
             }}>
               <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
               {menuAberto && <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>}
@@ -1147,7 +1153,7 @@ export default function App() {
           background: C.azul
         }}>
           {/* Título centralizado */}
-          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 300, color: "#fff", flex: 1, textAlign: "center", letterSpacing: "0.06em", fontFamily: "'Georgia', 'Times New Roman', serif" }}>
+          <h1 style={{ margin: 0, fontSize: 19, fontWeight: 600, color: "#fff", flex: 1, textAlign: "center", letterSpacing: "0.01em", fontFamily: "'Palatino Linotype', 'Palatino', 'Book Antiqua', serif" }}>
             {TITULO_HEADER[secao]}
           </h1>
 
