@@ -172,10 +172,10 @@ const parseGerencial = (values) => {
 const LogoInHaus = () => (
   <div style={{ textAlign: "center", lineHeight: 1 }}>
     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center" }}>
-      <span style={{ fontWeight: 700, fontSize: 20, color: "#fff", letterSpacing: "-0.5px", fontFamily: "'Segoe UI', Arial, sans-serif" }}>In</span>
-      <span style={{ fontWeight: 700, fontSize: 20, color: "rgba(255,255,255,0.7)", letterSpacing: "-0.5px", fontFamily: "'Segoe UI', Arial, sans-serif" }}>·Haus</span>
+      <span style={{ fontWeight: 700, fontSize: 20, color: C.cinzaEscuro, letterSpacing: "-0.5px", fontFamily: "'Segoe UI', Arial, sans-serif" }}>In</span>
+      <span style={{ fontWeight: 700, fontSize: 20, color: C.azul, letterSpacing: "-0.5px", fontFamily: "'Segoe UI', Arial, sans-serif" }}>·Haus</span>
     </div>
-    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", letterSpacing: "0.22em", marginTop: 2, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
+    <div style={{ fontSize: 9, color: C.cinzaClaro, letterSpacing: "0.22em", marginTop: 2, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
       logística
     </div>
   </div>
@@ -346,36 +346,38 @@ const FiltrosPopover = ({ filtros, setFiltros, meses, gerentes, onLimpar }) => {
 
 // ─── KPI Card Total ───────────────────────────────────────────────────────────
 const KpiCardTotal = ({ total, kpiStatus }) => {
-  const destaques = [
-    { key: "Concluído",       label: "Concluídos",       ...STATUS_COR["Concluído"] },
-    { key: "Aprovado",        label: "Aprovados",         ...STATUS_COR["Aprovado"] },
-    { key: "Pendente Cliente",label: "Pend. Cliente",     ...STATUS_COR["Pendente Cliente"] },
-    { key: "Pendente GPS",    label: "Pend. GPS",         ...STATUS_COR["Pendente GPS"] },
-    { key: "Negócio Perdido", label: "Neg. Perdido",      ...STATUS_COR["Negócio Perdido"] },
-  ];
+  const linhas = [
+    { key: "Concluído",               label: "Concluído" },
+    { key: "Aprovado",                label: "Aprovado" },
+    { key: "Pendente Cliente",        label: "Pendente Cliente" },
+    { key: "Pendente GPS",            label: "Pendente GPS" },
+    { key: "Em Negociação",           label: "Em Negociação" },
+    { key: "Em Negociação Antecipada",label: "Em Neg. Antecipada" },
+    { key: "Aguardando Reajuste",     label: "Aguardando Reajuste" },
+    { key: "Negócio Perdido",         label: "Negócio Perdido" },
+  ].filter(({ key }) => kpiStatus[key]);
 
   return (
     <div style={{
-      background: C.bgCard, borderRadius: 10, padding: "14px 18px",
+      background: C.bgCard, borderRadius: 10, padding: "16px 20px",
       border: `1px solid ${C.borda}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
       borderTop: `3px solid ${C.azul}`, gridColumn: "span 2"
     }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 10 }}>
-        <div style={{ fontSize: 11, color: C.cinzaClaro, fontWeight: 500 }}>Total de CRs</div>
-        <div style={{ fontSize: 28, fontWeight: 800, color: C.azul, lineHeight: 1 }}>{total}</div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 14, borderBottom: `1px solid ${C.borda}`, paddingBottom: 10 }}>
+        <div style={{ fontSize: 12, color: C.cinzaClaro, fontWeight: 500 }}>Total de CRs</div>
+        <div style={{ fontSize: 30, fontWeight: 800, color: C.azul, lineHeight: 1 }}>{total}</div>
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        {destaques.map(({ key, label, color, bg }) => {
-          const qtd = kpiStatus[key] || 0;
-          if (!qtd) return null;
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {linhas.map(({ key, label }) => {
+          const qtd = kpiStatus[key];
+          const cor = STATUS_COR[key] || { color: C.cinzaMedio, bg: "#f5f5f5" };
+          const pct = total > 0 ? Math.round((qtd / total) * 100) : 0;
           return (
-            <div key={key} style={{
-              display: "flex", alignItems: "center", gap: 5,
-              background: bg, borderRadius: 6, padding: "3px 10px",
-              border: `1px solid ${color}30`
-            }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color }}>{qtd}</span>
-              <span style={{ fontSize: 10, color, fontWeight: 500 }}>{label}</span>
+            <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: cor.color, flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: 12, color: C.cinzaMedio }}>{label}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: cor.color, minWidth: 20, textAlign: "right" }}>{qtd}</span>
+              <span style={{ fontSize: 10, color: C.cinzaClaro, minWidth: 30, textAlign: "right" }}>{pct}%</span>
             </div>
           );
         })}
@@ -713,9 +715,13 @@ export default function App() {
   const limparFiltros = () => setFiltros({ busca: "", filtroMes: [], filtroGerente: [], filtroStatus: [], filtroTipo: "" });
 
   const SECOES = [
-    { id: "gerencial", label: "Gestão de Reajustes Contratuais", icon: "📋" },
+    { id: "gerencial", label: "Gestão de Reajuste", icon: "📋" },
     { id: "economico", label: "Controle Econômico", icon: "📈" },
   ];
+  const TITULO_HEADER = {
+    "gerencial": "Gestão de Reajustes Contratuais",
+    "economico": "Controle Econômico",
+  };
   const secaoAtual = SECOES.find(s => s.id === secao);
 
   return (
@@ -730,23 +736,25 @@ export default function App() {
         {/* Logo + pin */}
         <div style={{
           padding: "16px 12px",
-          borderBottom: "1px solid rgba(255,255,255,0.12)",
+          borderBottom: `1px solid ${C.borda}`,
+          background: "#fff",
           display: "flex", alignItems: "center",
-          gap: 10, justifyContent: menuAberto ? "space-between" : "center"
+          gap: 10, justifyContent: menuAberto ? "space-between" : "center",
+          minHeight: 64
         }}>
           {menuAberto && <LogoInHaus />}
           <button
             onClick={() => setMenuAberto(v => !v)}
             title={menuAberto ? "Recolher" : "Expandir"}
             style={{
-              background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: 6, color: "#fff", cursor: "pointer",
+              background: C.azulClaro, border: `1px solid ${C.borda}`,
+              borderRadius: 6, color: C.azul, cursor: "pointer",
               width: 28, height: 28, flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 14, transition: "background 0.15s"
             }}
-            onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.22)"}
-            onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.12)"}
+            onMouseEnter={e => e.currentTarget.style.background = C.azulClaro}
+            onMouseLeave={e => e.currentTarget.style.background = C.azulClaro}
           >
             📌
           </button>
@@ -785,9 +793,13 @@ export default function App() {
           }}>
             <span>↻</span>{menuAberto && <span>Atualizar dados</span>}
           </button>
-          {menuAberto && lastUpdate && (
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 4, textAlign: "center" }}>
-              {lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+          {menuAberto && (
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 6, textAlign: "center", lineHeight: 1.5 }}>
+              {lastUpdate ? (
+                <>Última atualização: {lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {dados.length} registros</>
+              ) : (
+                <span style={{ color: "rgba(255,255,255,0.25)" }}>Aguardando dados…</span>
+              )}
             </div>
           )}
           {menuAberto && (
@@ -811,23 +823,19 @@ export default function App() {
         }}>
           {/* Título centralizado */}
           <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#fff", flex: 1, textAlign: "center" }}>
-            {secaoAtual?.label}
+            {TITULO_HEADER[secao]}
           </h1>
 
           {/* Ações direita */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-            {loading && <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>⏳</span>}
+            {loading && <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>⏳ Carregando…</span>}
             {erro && <span style={{ fontSize: 12, color: "#ffb3b3" }}>⚠ {erro}</span>}
-            {!loading && !erro && (
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", background: "rgba(255,255,255,0.12)", padding: "3px 10px", borderRadius: 20 }}>
-                {dados.length} registros
-              </span>
-            )}
 
             {/* Botão filtros */}
             <div ref={filtrosRef} style={{ position: "relative" }}>
               <button
                 onClick={() => setFiltrosAberto(v => !v)}
+                title="Filtros"
                 style={{
                   display: "flex", alignItems: "center", gap: 6,
                   padding: "6px 12px", borderRadius: 7, cursor: "pointer",
@@ -836,7 +844,15 @@ export default function App() {
                   color: "#fff", fontSize: 12, fontWeight: 500, transition: "all 0.15s"
                 }}
               >
-                <span style={{ fontSize: 14 }}>⚙</span>
+                {/* Ícone parâmetros (sliders) */}
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <line x1="1" y1="3" x2="13" y2="3" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="4" cy="3" r="1.5" fill="white"/>
+                  <line x1="1" y1="7" x2="13" y2="7" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="9" cy="7" r="1.5" fill="white"/>
+                  <line x1="1" y1="11" x2="13" y2="11" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="5" cy="11" r="1.5" fill="white"/>
+                </svg>
                 <span>Filtros</span>
                 {temFiltro && (
                   <span style={{
