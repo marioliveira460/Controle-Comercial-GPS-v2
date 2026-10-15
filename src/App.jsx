@@ -952,32 +952,6 @@ const SecaoClientes = ({ dados }) => {
 
             {aberto && (
               <div style={{ borderTop: `1px solid ${C.borda}` }}>
-                {/* Justificativa */}
-                <div style={{ padding: "10px 16px", background: "#fafbfc", borderBottom: `1px solid ${C.borda}` }}>
-                  <div style={{ fontSize: 11, color: C.cinzaClaro, marginBottom: 4, fontWeight: 500 }}>Observação do cliente</div>
-                  {editando === grupo ? (
-                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                      <textarea
-                        autoFocus value={textoEdit}
-                        onChange={e => setTextoEdit(e.target.value)}
-                        placeholder="Ex: Setor financeiro trata reajuste separado da diretoria operacional. Aprovações demoram pois passam por comitê..."
-                        style={{ flex: 1, fontSize: 12, color: C.cinzaEscuro, padding: "7px 10px", borderRadius: 6, border: `1.5px solid ${C.azul}`, resize: "vertical", minHeight: 60, outline: "none", fontFamily: "inherit" }}
-                      />
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <button onClick={() => salvarJust(grupo)} style={{ padding: "5px 12px", borderRadius: 5, background: C.azul, color: "#fff", border: "none", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Salvar</button>
-                        <button onClick={() => setEditando(null)} style={{ padding: "5px 12px", borderRadius: 5, background: "#f0f0f0", color: C.cinzaMedio, border: "none", fontSize: 12, cursor: "pointer" }}>Cancelar</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div onClick={() => { setEditando(grupo); setTextoEdit(just); }}
-                      style={{ fontSize: 12, color: just ? C.cinzaEscuro : C.cinzaClaro, padding: "6px 10px", borderRadius: 6, border: `1px dashed ${C.borda}`, cursor: "pointer", minHeight: 32, background: "#fff", transition: "border-color 0.15s" }}
-                      onMouseEnter={e => e.currentTarget.style.borderColor = C.azul}
-                      onMouseLeave={e => e.currentTarget.style.borderColor = C.borda}>
-                      {just || <span style={{ opacity: 0.5 }}>Clique para adicionar observação sobre esse cliente… ✏</span>}
-                    </div>
-                  )}
-                </div>
-
                 {/* Tabela de CRs */}
                 {crs.length > 0 && (
                   <div style={{ overflowX: "auto" }}>
