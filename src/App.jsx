@@ -527,7 +527,7 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
             borderTop: `3px solid ${C.vermelho}`, gridColumn: "span 2"
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${C.borda}` }}>
-              <span style={{ fontSize: 14 }}>🚦</span>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="2" fill={C.vermelho}/><circle cx="7" cy="7" r="2" fill={C.laranja}/><circle cx="7" cy="11.5" r="2" fill={C.verde}/></svg>
               <span style={{ fontSize: 12, color: C.cinzaClaro, fontWeight: 500 }}>Negociações Críticas</span>
               <span style={{ fontSize: 10, color: C.cinzaClaro, marginLeft: "auto" }}>dias em aberto</span>
             </div>
@@ -815,8 +815,14 @@ const SecaoClientes = ({ dados }) => {
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                       <thead>
                         <tr style={{ background: "#f8fafc" }}>
-                          {["CR","Descrição","Mês","Gerente","Status","Dias"].map(h => (
-                            <th key={h} style={{ padding: "7px 12px", textAlign: "left", color: C.cinzaClaro, fontWeight: 600, fontSize: 11, whiteSpace: "nowrap", borderBottom: `1px solid ${C.borda}` }}>{h}</th>
+                          {[
+                            { label: "CR",         align: "center" },
+                            { label: "Descrição",  align: "left"   },
+                            { label: "Status",     align: "center" },
+                            { label: "Dias",       align: "center" },
+                            { label: "Observação", align: "center" },
+                          ].map(({ label, align }) => (
+                            <th key={label} style={{ padding: "7px 12px", textAlign: align, color: C.cinzaClaro, fontWeight: 600, fontSize: 11, whiteSpace: "nowrap", borderBottom: `1px solid ${C.borda}` }}>{label}</th>
                           ))}
                         </tr>
                       </thead>
@@ -824,19 +830,35 @@ const SecaoClientes = ({ dados }) => {
                         {crs.map((row, i) => {
                           const ds = row.dias >= 60 ? { color: C.vermelho } : row.dias >= 30 ? { color: C.laranja } : { color: C.verde };
                           const stCor = STATUS_COR[row.status] || { color: C.cinzaMedio, bg: "#f0f0f0" };
+                          const obsKey = `${grupo}::${row.cr}`;
+                          const obsVal = justificativas[obsKey] || "";
                           return (
                             <tr key={row.cr + i} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                              <td style={{ padding: "7px 12px", color: C.cinzaMedio, fontFamily: "monospace", fontSize: 11 }}>{row.cr}</td>
-                              <td style={{ padding: "7px 12px", color: C.cinzaEscuro, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descri}</td>
-                              <td style={{ padding: "7px 12px", color: C.cinzaMedio }}>{row.mes}</td>
-                              <td style={{ padding: "7px 12px", color: C.cinzaEscuro, fontWeight: 500 }}>{row.gerente}</td>
-                              <td style={{ padding: "7px 12px" }}>
+                              <td style={{ padding: "7px 12px", color: C.cinzaMedio, fontFamily: "monospace", fontSize: 11, textAlign: "center" }}>{row.cr}</td>
+                              <td style={{ padding: "7px 12px", color: C.cinzaEscuro, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descri}</td>
+                              <td style={{ padding: "7px 12px", textAlign: "center" }}>
                                 <span style={{ padding: "2px 8px", borderRadius: 4, background: stCor.bg, color: stCor.color, fontSize: 11, fontWeight: 600 }}>{row.status}</span>
                               </td>
-                              <td style={{ padding: "7px 12px" }}>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: ds.color }}>
-                                  {row.concluido ? "✓ " : ""}{row.dias}d
-                                </span>
+                              <td style={{ padding: "7px 12px", textAlign: "center" }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: ds.color }}>{row.concluido ? "✓ " : ""}{row.dias}d</span>
+                              </td>
+                              <td style={{ padding: "7px 12px", textAlign: "center", minWidth: 180 }}>
+                                {editando === obsKey ? (
+                                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                    <input autoFocus value={textoEdit} onChange={e => setTextoEdit(e.target.value)}
+                                      onKeyDown={e => { if (e.key === "Enter") { setJustificativas(j => ({ ...j, [obsKey]: textoEdit })); setEditando(null); } if (e.key === "Escape") setEditando(null); }}
+                                      style={{ flex: 1, fontSize: 11, padding: "3px 7px", borderRadius: 4, border: `1.5px solid ${C.azul}`, outline: "none", fontFamily: "inherit" }} />
+                                    <button onClick={() => { setJustificativas(j => ({ ...j, [obsKey]: textoEdit })); setEditando(null); }}
+                                      style={{ padding: "3px 8px", borderRadius: 4, background: C.azul, color: "#fff", border: "none", fontSize: 11, cursor: "pointer" }}>✓</button>
+                                  </div>
+                                ) : (
+                                  <div onClick={() => { setEditando(obsKey); setTextoEdit(obsVal); }}
+                                    style={{ fontSize: 11, color: obsVal ? C.cinzaEscuro : C.borda, cursor: "pointer", padding: "2px 6px", borderRadius: 4, border: `1px dashed transparent`, transition: "all 0.12s", textAlign: "left" }}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = C.azul; e.currentTarget.style.background = C.azulClaro; }}
+                                    onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.background = "transparent"; }}>
+                                    {obsVal || "Adicionar observação…"}
+                                  </div>
+                                )}
                               </td>
                             </tr>
                           );
@@ -1015,7 +1037,7 @@ export default function App() {
   const SECOES = [
     { id: "gerencial", label: "Gestão de Reajuste", icon: "📋" },
     { id: "economico", label: "Controle Econômico", icon: "📈" },
-    { id: "clientes",  label: "Visão do Cliente",   icon: "🚦" },
+    { id: "clientes",  label: "Visão do Cliente",   icon: "◉" },
   ];
   const TITULO_HEADER = {
     "gerencial": "Gestão de Reajustes Contratuais",
