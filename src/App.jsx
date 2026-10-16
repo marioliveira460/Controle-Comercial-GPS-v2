@@ -692,6 +692,7 @@ const mesNome = (d) => d.toLocaleString("pt-BR", { month: "long", year: "numeric
 const SecaoVencimentos = ({ dados }) => {
   const hoje = new Date();
   const [busca, setBusca] = useState("");
+  const [filtroNivel, setFiltroNivel] = useState(null);
 
   // Monta lista de contratos com vencimento, um por grupo de cliente
   const contratos = useMemo(() => {
@@ -738,10 +739,14 @@ const SecaoVencimentos = ({ dados }) => {
   }, [dados]);
 
   const filtrados = useMemo(() => {
-    if (!busca.trim()) return contratos;
-    const q = busca.toLowerCase();
-    return contratos.filter(c => c.grupo.toLowerCase().includes(q) || c.vencStr.toLowerCase().includes(q));
-  }, [contratos, busca]);
+    let lista = contratos;
+    if (busca.trim()) {
+      const q = busca.toLowerCase();
+      lista = lista.filter(c => c.grupo.toLowerCase().includes(q) || c.vencStr.toLowerCase().includes(q));
+    }
+    if (filtroNivel) lista = lista.filter(c => c.nivel === filtroNivel);
+    return lista;
+  }, [contratos, busca, filtroNivel]);
 
   const urgentes = contratos.filter(c => c.alertaRenovacao);
 
@@ -757,35 +762,45 @@ const SecaoVencimentos = ({ dados }) => {
 
       {/* Banner de alertas */}
       {urgentes.length > 0 && (
-        <div style={{ background: "#fff8e6", border: `1.5px solid ${C.laranja}`, borderRadius: 10, padding: "14px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ background: "#fff8e6", border: `1.5px solid ${C.laranja}`, borderRadius: 10, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: C.laranja, fontSize: 13 }}>
             <span>⚠</span>
             <span>{urgentes.length} contrato{urgentes.length > 1 ? "s" : ""} precisam de ação nos próximos 180 dias</span>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "6px 16px" }}>
             {urgentes.map(c => (
-              <span key={c.grupo} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: semCor[c.nivel].bg, color: semCor[c.nivel].color, fontWeight: 600, border: `1px solid ${semCor[c.nivel].color}22` }}>
-                {c.grupo} — {c.vencStr}
-                {c.reajusteNoAnoVenc ? " 🔄 renovar + reajustar" : " 📄 carta de renovação"}
-              </span>
+              <div key={c.grupo} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: semCor[c.nivel].color, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: C.cinzaEscuro, fontWeight: 600 }}>{c.grupo}</span>
+                <span style={{ fontSize: 11, color: C.cinzaClaro, marginLeft: "auto", whiteSpace: "nowrap" }}>{c.vencStr}</span>
+              </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Legenda */}
-      <div style={{ display: "flex", gap: 16, padding: "10px 16px", background: "#fff", borderRadius: 8, border: `1px solid ${C.borda}`, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 11, color: C.cinzaClaro, fontWeight: 500 }}>Semáforo de vencimento:</span>
-        {[["vencido","Vencido"],["critico","≤ 90 dias"],["atencao","91–180 dias"],["ok","> 180 dias"]].map(([n, l]) => (
-          <div key={n} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: semCor[n].color, boxShadow: `0 0 0 3px ${semCor[n].bg}` }} />
-            <span style={{ fontSize: 11, color: C.cinzaMedio }}><b>{semCor[n].label}</b> {l}</span>
-          </div>
-        ))}
-        <div style={{ marginLeft: "auto" }}>
-          <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar cliente…"
-            style={{ fontSize: 12, padding: "5px 12px", borderRadius: 6, border: `1px solid ${C.borda}`, outline: "none", fontFamily: "inherit", width: 200 }} />
-        </div>
+      {/* Barra de filtros */}
+      <div style={{ display: "flex", gap: 8, padding: "10px 16px", background: "#fff", borderRadius: 8, border: `1px solid ${C.borda}`, alignItems: "center", flexWrap: "wrap" }}>
+        <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar cliente…"
+          style={{ fontSize: 12, padding: "5px 12px", borderRadius: 6, border: `1px solid ${C.borda}`, outline: "none", fontFamily: "inherit", width: 180 }} />
+        <div style={{ width: 1, height: 20, background: C.borda, margin: "0 4px" }} />
+        {[["vencido","Vencido"],["critico","Crítico"],["atencao","Atenção"],["ok","Ok"]].map(([n, l]) => {
+          const ativo = filtroNivel === n;
+          return (
+            <button key={n} onClick={() => setFiltroNivel(ativo ? null : n)}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 12px", borderRadius: 20, border: `1.5px solid ${ativo ? semCor[n].color : C.borda}`, background: ativo ? semCor[n].bg : "#fff", color: ativo ? semCor[n].color : C.cinzaMedio, fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.12s" }}>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: semCor[n].color }} />
+              {l}
+              <span style={{ fontSize: 10, opacity: 0.7 }}>({contratos.filter(c => c.nivel === n).length})</span>
+            </button>
+          );
+        })}
+        {(busca || filtroNivel) && (
+          <button onClick={() => { setBusca(""); setFiltroNivel(null); }}
+            style={{ marginLeft: "auto", fontSize: 11, color: C.cinzaClaro, background: "none", border: "none", cursor: "pointer" }}>
+            Limpar filtros ✕
+          </button>
+        )}
       </div>
 
       {/* Cards */}
@@ -1414,7 +1429,7 @@ export default function App() {
 
       {/* ── Sidebar ───────────────────────────────────────────────────────── */}
       <div style={{
-        width: menuAberto ? 220 : 56, flexShrink: 0, background: C.azul,
+        width: menuAberto ? 248 : 52, flexShrink: 0, background: C.azul,
         display: "flex", flexDirection: "column",
         transition: "width 0.2s cubic-bezier(.4,0,.2,1)", overflow: "hidden"
       }}>
@@ -1469,7 +1484,7 @@ export default function App() {
               transition: "all 0.15s", whiteSpace: "nowrap", overflow: "hidden",
               borderLeft: menuAberto ? (secao === id ? "3px solid rgba(255,255,255,0.7)" : "3px solid transparent") : "none",
             }}>
-              <span style={{ fontSize: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>{svgIcon || icon}</span>
+              <span style={{ fontSize: 13, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>{svgIcon || icon}</span>
               {menuAberto && <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>}
             </button>
           ))}
