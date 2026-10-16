@@ -833,10 +833,25 @@ const SecaoMatriz = ({ dados }) => {
   );
 };
 
-const SecaoClientes = ({ dados }) => {
-  const [justificativas, setJustificativas] = useState({});
+const SecaoClientes = ({ dados, onUpdate, setToast }) => {
+  const [justificativas, setJustificativas] = useState(() => {
+    const m = {};
+    dados.forEach(d => { if (d.obs) m[d.cr] = d.obs; });
+    return m;
+  });
   const [editando, setEditando] = useState(null);
   const [textoEdit, setTextoEdit] = useState("");
+
+  const salvarObs = async (cr, valor) => {
+    try {
+      const r = await fetch(UPDATE_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cr, campo: "Observações", valor }) });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      onUpdate(cr, "Observações", valor);
+      setToast("Observação salva");
+    } catch (e) {
+      setToast("Erro ao salvar: " + e.message);
+    }
+  };
 
   const hoje = new Date();
 
@@ -973,8 +988,13 @@ const SecaoClientes = ({ dados }) => {
                         {crs.map((row, i) => {
                           const ds = row.dias >= 60 ? { color: C.vermelho } : row.dias >= 30 ? { color: C.laranja } : { color: C.verde };
                           const stCor = STATUS_COR[row.status] || { color: C.cinzaMedio, bg: "#f0f0f0" };
-                          const obsKey = `${grupo}::${row.cr}`;
+                          const obsKey = row.cr;
                           const obsVal = justificativas[obsKey] || "";
+                          const confirmarObs = () => {
+                            setJustificativas(j => ({ ...j, [obsKey]: textoEdit }));
+                            setEditando(null);
+                            salvarObs(row.cr, textoEdit);
+                          };
                           return (
                             <tr key={row.cr + i} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
                               <td style={{ padding: "7px 12px", color: C.cinzaMedio, fontFamily: "monospace", fontSize: 11, textAlign: "center" }}>{row.cr}</td>
@@ -989,9 +1009,9 @@ const SecaoClientes = ({ dados }) => {
                                 {editando === obsKey ? (
                                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                                     <input autoFocus value={textoEdit} onChange={e => setTextoEdit(e.target.value)}
-                                      onKeyDown={e => { if (e.key === "Enter") { setJustificativas(j => ({ ...j, [obsKey]: textoEdit })); setEditando(null); } if (e.key === "Escape") setEditando(null); }}
+                                      onKeyDown={e => { if (e.key === "Enter") confirmarObs(); if (e.key === "Escape") setEditando(null); }}
                                       style={{ flex: 1, fontSize: 11, padding: "3px 7px", borderRadius: 4, border: `1.5px solid ${C.azul}`, outline: "none", fontFamily: "inherit" }} />
-                                    <button onClick={() => { setJustificativas(j => ({ ...j, [obsKey]: textoEdit })); setEditando(null); }}
+                                    <button onClick={confirmarObs}
                                       style={{ padding: "3px 8px", borderRadius: 4, background: C.azul, color: "#fff", border: "none", fontSize: 11, cursor: "pointer" }}>✓</button>
                                   </div>
                                 ) : (
@@ -1104,8 +1124,7 @@ const SecaoEconomico = ({ dados, filtros }) => {
                     {rows.map((row, i) => {
                       const vAtual = num(row.valorAtual);
                       const vFinal = num(row.valorFinal);
-                      const concluido = row.dataAprov && row.dataAprov.trim() !== "";
-                      const ganho = concluido && vFinal && vAtual ? vFinal - vAtual : null;
+                      const ganho = vFinal && vAtual ? vFinal - vAtual : null;
                       const pct = vAtual > 0 && vFinal > 0 ? ((vFinal - vAtual) / vAtual) * 100 : 0;
                       return (
                         <tr key={row.cr + i} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
@@ -1181,7 +1200,7 @@ export default function App() {
   const onUpdate = useCallback((cr, campo, valor) => {
     setDados(prev => prev.map(d => {
       if (d.cr !== cr) return d;
-      const campoMap = { "Tipo de Negócio": "tipo", "Status Real": "status", "Devido (%)": "devido", "Aplicado (%)": "aplicado" };
+      const campoMap = { "Tipo de Negócio": "tipo", "Status Real": "status", "Devido (%)": "devido", "Aplicado (%)": "aplicado", "Observações": "obs" };
       const key = campoMap[campo];
       return key ? { ...d, [key]: valor } : d;
     }));
@@ -1405,7 +1424,7 @@ export default function App() {
           ) : secao === "economico" ? (
             <SecaoEconomico dados={dados} filtros={filtros} />
           ) : secao === "clientes" ? (
-            <SecaoClientes dados={dados} />
+            <SecaoClientes dados={dados} onUpdate={onUpdate} setToast={setToast} />
           ) : (
             <SecaoMatriz dados={dados} />
           )}
