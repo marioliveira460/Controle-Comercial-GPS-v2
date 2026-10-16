@@ -177,6 +177,7 @@ const parseGerencial = (values) => {
     dataBaseCCT: r[iDataBase] || "",
     clausulaProdutividade: r[iProdut] ?? "",
     sindicato: r[iSind] || "",
+    vencimentoContrato: r[idx("Vencimento do Contrato")] || "",
   }));
 };
 
@@ -674,6 +675,178 @@ const SecaoGerencial = ({ dados, onUpdate, setToast, filtros }) => {
 };
 
 // ─── Seção Visão do Cliente ──────────────────────────────────────────────────
+// ─── Seção Vencimentos Contratuais ───────────────────────────────────────────
+const parseVencimento = (str) => {
+  if (!str) return null;
+  const MESES = { janeiro:0,fevereiro:1,março:2,marco:2,abril:3,maio:4,junho:5,julho:6,agosto:7,setembro:8,outubro:9,novembro:10,dezembro:11 };
+  const lower = str.toLowerCase().trim();
+  const match = lower.match(/^([a-zç]+)\/(\d{4})$/);
+  if (!match) return null;
+  const m = MESES[match[1]];
+  if (m === undefined) return null;
+  return new Date(parseInt(match[2]), m, 1);
+};
+
+const mesNome = (d) => d.toLocaleString("pt-BR", { month: "long", year: "numeric" });
+
+const SecaoVencimentos = ({ dados }) => {
+  const hoje = new Date();
+  const [busca, setBusca] = useState("");
+
+  // Monta lista de contratos com vencimento, um por grupo de cliente
+  const contratos = useMemo(() => {
+    // agrupa por grupoCliente, pega o vencimento único por grupo
+    const map = {};
+    dados.forEach(d => {
+      if (!d.vencimentoContrato) return;
+      const venc = parseVencimento(d.vencimentoContrato);
+      if (!venc) return;
+      const key = d.grupoCliente || "Sem Grupo";
+      if (!map[key]) map[key] = { grupo: key, vencimento: venc, vencStr: d.vencimentoContrato, crs: [] };
+      // Pega mês de reajuste mais próximo do vencimento para esse grupo
+      map[key].crs.push(d);
+    });
+
+    return Object.values(map).map(({ grupo, vencimento, vencStr, crs }) => {
+      const diasVenc = Math.ceil((vencimento - hoje) / 86400000);
+
+      // Mês de reajuste: pega o mês com mais CRs nesse grupo
+      const mesCount = {};
+      crs.forEach(d => { if (d.mes) mesCount[d.mes] = (mesCount[d.mes] || 0) + 1; });
+      const mesReajuste = Object.entries(mesCount).sort((a,b) => b[1]-a[1])[0]?.[0] || "";
+
+      // Verifica se o mês de reajuste cai no mesmo ano do vencimento
+      const anoVenc = vencimento.getFullYear();
+      let reajusteNoAnoVenc = false;
+      if (mesReajuste) {
+        const MESES_NUM = { janeiro:0,fevereiro:1,março:2,marco:2,abril:3,maio:4,junho:5,julho:6,agosto:7,setembro:8,outubro:9,novembro:10,dezembro:11 };
+        const mNum = MESES_NUM[mesReajuste.toLowerCase()];
+        if (mNum !== undefined) {
+          // reajuste anual — verifica instância no ano do vencimento
+          const dataReaj = new Date(anoVenc, mNum, 1);
+          const diasReaj = Math.ceil((dataReaj - hoje) / 86400000);
+          reajusteNoAnoVenc = diasReaj > 0 && diasReaj <= 365;
+        }
+      }
+
+      // Semáforo: vermelho ≤90d, amarelo 91-180d, verde >180d
+      const nivel = diasVenc <= 0 ? "vencido" : diasVenc <= 90 ? "critico" : diasVenc <= 180 ? "atencao" : "ok";
+      const alertaRenovacao = diasVenc > 0 && diasVenc <= 180;
+
+      return { grupo, vencimento, vencStr, diasVenc, mesReajuste, reajusteNoAnoVenc, nivel, alertaRenovacao, totalCRs: crs.length };
+    }).sort((a, b) => a.vencimento - b.vencimento);
+  }, [dados]);
+
+  const filtrados = useMemo(() => {
+    if (!busca.trim()) return contratos;
+    const q = busca.toLowerCase();
+    return contratos.filter(c => c.grupo.toLowerCase().includes(q) || c.vencStr.toLowerCase().includes(q));
+  }, [contratos, busca]);
+
+  const urgentes = contratos.filter(c => c.alertaRenovacao);
+
+  const semCor = {
+    vencido: { color: "#7b1c1c", bg: "#fde8e8", label: "Vencido" },
+    critico: { color: C.vermelho, bg: C.vermelhoClaro, label: "Crítico" },
+    atencao: { color: C.laranja, bg: C.laranjaClaro, label: "Atenção" },
+    ok:      { color: C.verde,   bg: C.verdeClaro,   label: "Ok" },
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+      {/* Banner de alertas */}
+      {urgentes.length > 0 && (
+        <div style={{ background: "#fff8e6", border: `1.5px solid ${C.laranja}`, borderRadius: 10, padding: "14px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: C.laranja, fontSize: 13 }}>
+            <span>⚠</span>
+            <span>{urgentes.length} contrato{urgentes.length > 1 ? "s" : ""} precisam de ação nos próximos 180 dias</span>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {urgentes.map(c => (
+              <span key={c.grupo} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: semCor[c.nivel].bg, color: semCor[c.nivel].color, fontWeight: 600, border: `1px solid ${semCor[c.nivel].color}22` }}>
+                {c.grupo} — {c.vencStr}
+                {c.reajusteNoAnoVenc ? " 🔄 renovar + reajustar" : " 📄 carta de renovação"}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Legenda */}
+      <div style={{ display: "flex", gap: 16, padding: "10px 16px", background: "#fff", borderRadius: 8, border: `1px solid ${C.borda}`, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, color: C.cinzaClaro, fontWeight: 500 }}>Semáforo de vencimento:</span>
+        {[["vencido","Vencido"],["critico","≤ 90 dias"],["atencao","91–180 dias"],["ok","> 180 dias"]].map(([n, l]) => (
+          <div key={n} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: semCor[n].color, boxShadow: `0 0 0 3px ${semCor[n].bg}` }} />
+            <span style={{ fontSize: 11, color: C.cinzaMedio }}><b>{semCor[n].label}</b> {l}</span>
+          </div>
+        ))}
+        <div style={{ marginLeft: "auto" }}>
+          <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar cliente…"
+            style={{ fontSize: 12, padding: "5px 12px", borderRadius: 6, border: `1px solid ${C.borda}`, outline: "none", fontFamily: "inherit", width: 200 }} />
+        </div>
+      </div>
+
+      {/* Cards */}
+      {filtrados.map(c => {
+        const s = semCor[c.nivel];
+        return (
+          <div key={c.grupo} style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.borda}`, borderLeft: `4px solid ${s.color}`, padding: "14px 20px", display: "flex", alignItems: "center", gap: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+            {/* Semáforo */}
+            <div style={{ width: 14, height: 14, borderRadius: "50%", background: s.color, flexShrink: 0, boxShadow: `0 0 0 4px ${s.bg}` }} />
+
+            {/* Nome */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, color: C.cinzaEscuro, fontSize: 13 }}>{c.grupo}</div>
+              <div style={{ fontSize: 11, color: C.cinzaClaro, marginTop: 2 }}>{c.totalCRs} CR{c.totalCRs !== 1 ? "s" : ""}</div>
+            </div>
+
+            {/* Vencimento */}
+            <div style={{ textAlign: "center", minWidth: 130 }}>
+              <div style={{ fontSize: 10, color: C.cinzaClaro, fontWeight: 500 }}>VENCIMENTO</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: s.color, marginTop: 2 }}>{c.vencStr}</div>
+            </div>
+
+            {/* Dias restantes */}
+            <div style={{ textAlign: "center", minWidth: 100 }}>
+              <div style={{ fontSize: 10, color: C.cinzaClaro, fontWeight: 500 }}>DIAS RESTANTES</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: s.color, marginTop: 2 }}>
+                {c.diasVenc <= 0 ? "Vencido" : `${c.diasVenc}d`}
+              </div>
+            </div>
+
+            {/* Mês de reajuste */}
+            <div style={{ textAlign: "center", minWidth: 130 }}>
+              <div style={{ fontSize: 10, color: C.cinzaClaro, fontWeight: 500 }}>MÊS DE REAJUSTE</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.cinzaMedio, marginTop: 2 }}>{c.mesReajuste || "—"}</div>
+            </div>
+
+            {/* Badge de ação */}
+            <div style={{ minWidth: 160, textAlign: "right" }}>
+              {c.diasVenc <= 0 ? (
+                <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "#fde8e8", color: "#7b1c1c", fontWeight: 700, border: "1px solid #f5c6c6" }}>⚠ Contrato vencido</span>
+              ) : c.reajusteNoAnoVenc ? (
+                <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "#e8f4fd", color: C.azul, fontWeight: 700, border: `1px solid ${C.azul}33` }}>🔄 Renovar + Reajustar juntos</span>
+              ) : c.alertaRenovacao ? (
+                <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: C.laranjaClaro, color: C.laranja, fontWeight: 700, border: `1px solid ${C.laranja}44` }}>📄 Enviar carta de renovação</span>
+              ) : (
+                <span style={{ fontSize: 11, color: C.borda }}>—</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {filtrados.length === 0 && (
+        <div style={{ textAlign: "center", padding: 60, color: C.cinzaClaro }}>
+          Nenhum resultado para "{busca}"
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Seção Matriz de Reajuste ────────────────────────────────────────────────
 const SecaoMatriz = ({ dados }) => {
   const [busca, setBusca] = useState("");
@@ -1212,6 +1385,7 @@ export default function App() {
     { id: "gerencial", label: "Gestão de Reajuste",  icon: "📋" },
     { id: "economico", label: "Controle Econômico",  icon: "📈" },
     { id: "clientes",  label: "Visão do Cliente",    icon: "◉" },
+    { id: "vencimentos", label: "Vencimentos Contratuais", icon: "📅" },
     { id: "matriz",    label: "Matriz de Reajuste",  icon: null, svgIcon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7"/>
@@ -1231,6 +1405,7 @@ export default function App() {
     "economico": "Controle Econômico",
     "clientes":  "Visão do Cliente",
     "matriz":    "Matriz de Reajuste",
+    "vencimentos": "Vencimentos Contratuais",
   };
   const secaoAtual = SECOES.find(s => s.id === secao);
 
@@ -1425,6 +1600,8 @@ export default function App() {
             <SecaoEconomico dados={dados} filtros={filtros} />
           ) : secao === "clientes" ? (
             <SecaoClientes dados={dados} onUpdate={onUpdate} setToast={setToast} />
+          ) : secao === "vencimentos" ? (
+            <SecaoVencimentos dados={dados} />
           ) : (
             <SecaoMatriz dados={dados} />
           )}
