@@ -11,6 +11,7 @@ const CAMPO_COLUNA = {
   "Aplicado (%)": "Aplicado (%)",
   "Valor Contrato Atual": "Valor Contrato Atual",
   "Valor Final/Pleito": "Valor Final/Pleito",
+  "Observações": "Observações",
 };
 
 module.exports = async (req, res) => {
@@ -95,4 +96,3 @@ function columnToLetter(col) {
   }
   return letter;
 }
-
