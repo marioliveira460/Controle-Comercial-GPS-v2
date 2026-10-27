@@ -689,6 +689,155 @@ const parseVencimento = (str) => {
 
 const mesNome = (d) => d.toLocaleString("pt-BR", { month: "long", year: "numeric" });
 
+// ─── Manual de Uso ───────────────────────────────────────────────────────────
+const MANUAL_ABAS = [
+  {
+    icon: "📋",
+    titulo: "Gestão de Reajuste",
+    cor: "#006080",
+    corBg: "#e6f4f8",
+    descricao: "Visão geral de todos os Contratos de Reajuste (CRs) da carteira.",
+    topicos: [
+      { label: "Filtros", texto: "Use os filtros no topo para buscar por mês de vigência, gerente, status ou tipo de CR. Todos os filtros funcionam em conjunto." },
+      { label: "Cards de grupo", texto: "Cada grupo de cliente exibe um resumo com total de contratos, valor atual somado, valor final e percentual médio de reajuste." },
+      { label: "Tabela de CRs", texto: "Dentro de cada grupo você encontra os CRs individuais com status, tipo, valores e percentuais. Clique nas células de status ou tipo para editar diretamente." },
+      { label: "Edição inline", texto: "Campos como Status Real, Tipo de Negócio, Devido (%) e Aplicado (%) podem ser alterados clicando na célula — a alteração salva automaticamente na planilha." },
+    ],
+  },
+  {
+    icon: "📈",
+    titulo: "Controle Econômico",
+    cor: "#0a8a5c",
+    corBg: "#e6f7f1",
+    descricao: "Análise financeira da carteira: valores de contrato, reajustes e ganho estimado.",
+    topicos: [
+      { label: "KPIs no topo", texto: "Exibem o total do Valor Atual somado, o Valor Final projetado, o ganho estimado (somente CRs concluídos) e o percentual médio de reajuste da carteira." },
+      { label: "Ganho Estimado", texto: "Calculado apenas sobre CRs que possuem Data de Aprovação preenchida, ou seja, contratos efetivamente concluídos. É a diferença entre Valor Final e Valor Atual." },
+      { label: "Cards por grupo", texto: "Mostram o ganho por grupo também considerando somente os CRs concluídos. Grupos sem CRs concluídos exibem '—'." },
+      { label: "Tabela detalhada", texto: "Exibe o ganho individual de cada CR sempre que os dois valores (atual e final) estiverem preenchidos, independente do status." },
+    ],
+  },
+  {
+    icon: "◉",
+    titulo: "Visão do Cliente",
+    cor: "#6c3fb5",
+    corBg: "#f0ebfb",
+    descricao: "Resumo executivo por cliente, ideal para reuniões e acompanhamento de negociações.",
+    topicos: [
+      { label: "Cards por cliente", texto: "Cada card resume os CRs daquele cliente com status geral, tipos de negócio envolvidos e evolução de valores." },
+      { label: "Observações", texto: "Campo de texto livre por CR para registrar pontos de atenção, histórico de negociação ou informações relevantes. As observações são salvas diretamente na planilha." },
+      { label: "Como editar", texto: "Clique no ícone de lápis ao lado do campo de observação, escreva o texto e confirme. A informação fica salva para todos que acessarem o dashboard." },
+    ],
+  },
+  {
+    icon: "📅",
+    titulo: "Vencimentos Contratuais",
+    cor: "#c96b00",
+    corBg: "#fef3e2",
+    descricao: "Controle de datas de vencimento dos contratos com semáforo de urgência.",
+    topicos: [
+      { label: "Semáforo", texto: "Cada contrato recebe uma cor: Vencido (passou da data), Crítico (vence em até 90 dias), Atenção (91 a 180 dias) e Ok (mais de 180 dias). Isso orienta a prioridade de ação." },
+      { label: "Banner de alertas", texto: "Exibe em destaque os contratos que precisam de ação nos próximos 180 dias, agrupados em três colunas para facilitar a leitura." },
+      { label: "Filtros rápidos", texto: "Botões Vencido, Crítico, Atenção e Ok filtram a lista de contratos. É possível combinar com a busca por nome do cliente." },
+      { label: "Alerta de renovação", texto: "Quando o mês de reajuste cai no mesmo ano do vencimento do contrato, o sistema sugere fazer a renovação e o reajuste juntos. Caso contrário, alerta com 6 meses de antecedência para envio da carta de renovação." },
+    ],
+  },
+  {
+    icon: "⊞",
+    titulo: "Matriz de Reajuste",
+    cor: "#007fa3",
+    corBg: "#e6f4f8",
+    descricao: "Referência técnica dos contratos: índices, datas-base, sindicatos e cláusulas.",
+    topicos: [
+      { label: "Resumo de Diretrizes", texto: "Card no topo mostra quantos CRs utilizam cada índice contratual (ex: 100% Dissídio, 70% CCT e 30% IPCA). Clique em um ou mais índices para filtrar a tabela abaixo." },
+      { label: "Filtro por índice", texto: "Seleção múltipla — escolha um ou mais índices para ver somente os grupos e CRs que utilizam aquela diretriz de reajuste." },
+      { label: "Grupos expansíveis", texto: "Os contratos ficam organizados por grupo de cliente. Clique no cabeçalho do grupo para expandir ou recolher. Use 'Expandir todos' para ver tudo de uma vez." },
+      { label: "Colunas da tabela", texto: "CR, Descrição, Mês de Reajuste, Índice Contratual, Data Base CCT, Cláusula de Produtividade e Sindicato. Esses dados vêm diretamente da planilha Gerencial." },
+    ],
+  },
+];
+
+const SecaoManual = () => {
+  const [abaAberta, setAbaAberta] = useState(null);
+
+  return (
+    <div style={{ padding: 32, maxWidth: 820, margin: "0 auto", display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Cabeçalho */}
+      <div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: C.cinzaEscuro, fontFamily: SERIF, marginBottom: 6 }}>
+          Manual de Uso
+        </div>
+        <div style={{ fontSize: 14, color: C.cinzaMedio, lineHeight: 1.6 }}>
+          Guia rápido para cada aba do dashboard. Clique em qualquer seção para ver mais detalhes.
+        </div>
+      </div>
+
+      {/* Cards das abas */}
+      {MANUAL_ABAS.map((aba) => {
+        const aberto = abaAberta === aba.titulo;
+        return (
+          <div key={aba.titulo} style={{
+            background: "#fff", borderRadius: 12,
+            border: `1.5px solid ${aberto ? aba.cor + "55" : C.borda}`,
+            overflow: "hidden", transition: "border-color 0.2s",
+            boxShadow: aberto ? `0 2px 12px ${aba.cor}18` : "none",
+          }}>
+            {/* Header clicável */}
+            <button onClick={() => setAbaAberta(aberto ? null : aba.titulo)} style={{
+              width: "100%", display: "flex", alignItems: "center", gap: 14,
+              padding: "16px 20px", background: aberto ? aba.corBg : "#fff",
+              border: "none", cursor: "pointer", textAlign: "left",
+              borderBottom: aberto ? `1px solid ${aba.cor}22` : "none",
+              transition: "background 0.2s", fontFamily: "inherit",
+            }}>
+              <div style={{
+                width: 38, height: 38, borderRadius: 10,
+                background: aba.corBg, border: `1.5px solid ${aba.cor}33`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 17, flexShrink: 0,
+              }}>
+                {aba.icon}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: aberto ? aba.cor : C.cinzaEscuro, fontFamily: SERIF }}>{aba.titulo}</div>
+                <div style={{ fontSize: 12, color: C.cinzaMedio, marginTop: 2 }}>{aba.descricao}</div>
+              </div>
+              <span style={{
+                fontSize: 13, color: aba.cor, transition: "transform 0.2s",
+                transform: aberto ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0,
+              }}>▶</span>
+            </button>
+
+            {/* Conteúdo */}
+            {aberto && (
+              <div style={{ padding: "16px 20px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+                {aba.topicos.map((t) => (
+                  <div key={t.label} style={{ display: "flex", gap: 12 }}>
+                    <div style={{
+                      flexShrink: 0, marginTop: 2,
+                      padding: "2px 10px", borderRadius: 4, height: "fit-content",
+                      background: aba.corBg, color: aba.cor,
+                      fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
+                    }}>
+                      {t.label}
+                    </div>
+                    <div style={{ fontSize: 13, color: C.cinzaMedio, lineHeight: 1.65 }}>{t.texto}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Rodapé */}
+      <div style={{ fontSize: 11, color: C.cinzaClaro, textAlign: "center", paddingTop: 8 }}>
+        Dúvidas ou sugestões? Fale com <b style={{ color: C.cinzaMedio }}>Mariana Oliveira</b>.
+      </div>
+    </div>
+  );
+};
+
 const SecaoVencimentos = ({ dados }) => {
   const hoje = new Date();
   const [busca, setBusca] = useState("");
@@ -1579,10 +1728,31 @@ export default function App() {
 
         <div style={{ flex: 1 }} />
 
+        {/* Manual */}
+        <div style={{ padding: menuAberto ? "6px 12px" : "6px 6px", borderTop: "1px solid rgba(255,255,255,0.12)" }}>
+          <button onClick={() => setSecao("manual")} title="Manual de instruções" style={{
+            display: "flex", alignItems: "center",
+            gap: menuAberto ? 10 : 0,
+            justifyContent: menuAberto ? "flex-start" : "center",
+            padding: menuAberto ? "8px 12px" : "8px 0",
+            borderRadius: 7, width: "100%",
+            background: secao === "manual"
+              ? "linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.32) 100%)"
+              : "transparent",
+            border: secao === "manual" ? "1px solid rgba(0,0,0,0.25)" : "1px solid transparent",
+            color: secao === "manual" ? "#fff" : "rgba(255,255,255,0.5)",
+            cursor: "pointer", fontSize: 12, fontWeight: secao === "manual" ? 600 : 300,
+            fontFamily: SERIF, letterSpacing: "0.03em",
+          }}>
+            <span style={{ fontSize: 13, flexShrink: 0 }}>❓</span>
+            {menuAberto && <span>Manual de instruções</span>}
+          </button>
+        </div>
+
         {/* Rodapé */}
         <div style={{ padding: menuAberto ? "10px 12px" : "10px 6px", borderTop: "1px solid rgba(255,255,255,0.12)" }}>
           <button onClick={carregarDados} title="Atualizar dados" style={{
-            display: "flex", alignItems: "center", justifyContent: menuAberto ? "flex-start" : "center",
+            display: "flex", alignItems: "center", justifyContent: "center",
             gap: 8, padding: menuAberto ? "7px 12px" : "7px 0",
             borderRadius: 6, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)",
             color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 300, fontFamily: SERIF, letterSpacing: "0.03em", width: "100%"
@@ -1704,6 +1874,8 @@ export default function App() {
             <SecaoClientes dados={dados} onUpdate={onUpdate} setToast={setToast} />
           ) : secao === "vencimentos" ? (
             <SecaoVencimentos dados={dados} />
+          ) : secao === "manual" ? (
+            <SecaoManual />
           ) : (
             <SecaoMatriz dados={dados} />
           )}
