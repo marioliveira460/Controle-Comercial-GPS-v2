@@ -909,8 +909,60 @@ const SecaoMatriz = ({ dados }) => {
     borderBottom: `1px solid ${C.borda}`, textAlign: align, verticalAlign: "middle",
   });
 
+  // Resumo por índice
+  const resumoIndices = useMemo(() => {
+    const map = {};
+    dados.forEach(d => {
+      const idx = d.indiceContratual?.trim() || "Não definido";
+      if (!map[idx]) map[idx] = 0;
+      map[idx]++;
+    });
+    return Object.entries(map)
+      .sort((a, b) => b[1] - a[1]);
+  }, [dados]);
+
+  const INDICE_COR = [
+    { color: C.azul,     bg: C.azulClaro },
+    { color: C.verde,    bg: C.verdeClaro },
+    { color: C.roxo,     bg: C.roxoClaro },
+    { color: C.laranja,  bg: C.laranjaClaro },
+    { color: C.vermelho, bg: C.vermelhoClaro },
+    { color: C.azulMedio,bg: C.azulClaro },
+  ];
+
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* Card de resumo por índice */}
+      <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.borda}`, padding: "16px 20px" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.cinzaClaro, letterSpacing: "0.08em", marginBottom: 14, textTransform: "uppercase" }}>
+          Resumo de Diretrizes
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+          {resumoIndices.map(([indice, count], i) => {
+            const cor = INDICE_COR[i % INDICE_COR.length];
+            const pct = ((count / dados.length) * 100).toFixed(0);
+            return (
+              <div key={indice} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "8px 14px", borderRadius: 8,
+                background: cor.bg, border: `1px solid ${cor.color}22`,
+                minWidth: 180,
+              }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: cor.color, flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: cor.color }}>{indice}</div>
+                  <div style={{ fontSize: 11, color: C.cinzaMedio, marginTop: 1 }}>
+                    <b style={{ color: C.cinzaEscuro }}>{count}</b> CR{count !== 1 ? "s" : ""}
+                    <span style={{ color: C.cinzaClaro }}> · {pct}%</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Cabeçalho */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <input
