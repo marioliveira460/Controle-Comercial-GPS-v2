@@ -689,6 +689,190 @@ const parseVencimento = (str) => {
 
 const mesNome = (d) => d.toLocaleString("pt-BR", { month: "long", year: "numeric" });
 
+// ─── Seção Negociações (Kanban) ──────────────────────────────────────────────
+const COLUNAS_KANBAN = [
+  { id: "A fazer",             label: "A Fazer",              cor: C.cinzaMedio,  bg: "#f8fafb" },
+  { id: "Em andamento",        label: "Em Andamento",         cor: C.azul,        bg: C.azulClaro },
+  { id: "Aguardando resposta", label: "Aguardando Resposta",  cor: C.laranja,     bg: C.laranjaClaro },
+  { id: "Concluído",           label: "Concluído",            cor: C.verde,       bg: C.verdeClaro },
+];
+
+const SecaoNegociacoes = ({ setToast }) => {
+  const [tarefas, setTarefas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [arrastando, setArrastando] = useState(null); // { id, statusOrigem }
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/get-tasks");
+      const data = await r.json();
+      setTarefas(data.tarefas || []);
+    } catch { setToast("Erro ao carregar tarefas"); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const moverTarefa = async (id, novoStatus) => {
+    // Atualiza otimisticamente
+    setTarefas(prev => prev.map(t => t.id === id ? { ...t, status: novoStatus, concluidoEm: novoStatus === "Concluído" ? new Date().toISOString().split("T")[0] : t.concluidoEm } : t));
+    try {
+      const r = await fetch("/api/update-task", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: novoStatus }),
+      });
+      if (!r.ok) throw new Error();
+      setToast("Tarefa atualizada");
+    } catch {
+      setToast("Erro ao atualizar — recarregando…");
+      carregar();
+    }
+  };
+
+  const hoje = new Date().toISOString().split("T")[0];
+
+  const urgenciaPrazo = (prazo) => {
+    if (!prazo) return null;
+    const diff = (new Date(prazo) - new Date(hoje)) / (1000 * 60 * 60 * 24);
+    if (diff < 0)  return { cor: C.vermelho, bg: C.vermelhoClaro, label: "Vencido" };
+    if (diff <= 2) return { cor: C.laranja,  bg: C.laranjaClaro,  label: "Hoje/Amanhã" };
+    return null;
+  };
+
+  if (loading) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: C.cinzaClaro, gap: 10 }}>
+      <span style={{ fontSize: 20 }}>⏳</span> Carregando tarefas…
+    </div>
+  );
+
+  return (
+    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, height: "100%", boxSizing: "border-box" }}>
+      {/* Cabeçalho */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 13, color: C.cinzaMedio }}>
+            {tarefas.length} tarefa{tarefas.length !== 1 ? "s" : ""} · {tarefas.filter(t => t.status !== "Concluído").length} em aberto
+          </div>
+        </div>
+        <button onClick={carregar} style={{ marginLeft: "auto", fontSize: 12, padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.borda}`, background: "#fff", color: C.cinzaMedio, cursor: "pointer", fontFamily: "inherit" }}>
+          ↻ Atualizar
+        </button>
+      </div>
+
+      {tarefas.length === 0 ? (
+        <div style={{ textAlign: "center", padding: 60, color: C.cinzaClaro }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>🗂</div>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>Nenhuma tarefa ainda</div>
+          <div style={{ fontSize: 13 }}>As tarefas são criadas automaticamente quando um CR entra em "Em Negociação".</div>
+        </div>
+      ) : (
+        /* Kanban */
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, flex: 1, minHeight: 0 }}>
+          {COLUNAS_KANBAN.map(col => {
+            const cards = tarefas.filter(t => t.status === col.id);
+            return (
+              <div
+                key={col.id}
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => {
+                  e.preventDefault();
+                  if (arrastando && arrastando.statusOrigem !== col.id) {
+                    moverTarefa(arrastando.id, col.id);
+                  }
+                  setArrastando(null);
+                }}
+                style={{ display: "flex", flexDirection: "column", gap: 0, minHeight: 200 }}
+              >
+                {/* Header da coluna */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 12px", borderRadius: "8px 8px 0 0",
+                  background: col.bg, border: `1px solid ${col.cor}33`,
+                  borderBottom: "none",
+                }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.cor }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: col.cor }}>{col.label}</span>
+                  <span style={{ marginLeft: "auto", fontSize: 11, color: col.cor, opacity: 0.7, fontWeight: 600 }}>{cards.length}</span>
+                </div>
+
+                {/* Cards */}
+                <div style={{
+                  flex: 1, overflowY: "auto", padding: "8px",
+                  background: "#f5f8fa", border: `1px solid ${col.cor}22`,
+                  borderRadius: "0 0 8px 8px", display: "flex", flexDirection: "column", gap: 8,
+                }}>
+                  {cards.map(t => {
+                    const urg = urgenciaPrazo(t.prazo);
+                    const proxStatus = COLUNAS_KANBAN.find((c, i, arr) => i === arr.findIndex(x => x.id === col.id) + 1);
+                    return (
+                      <div
+                        key={t.id}
+                        draggable
+                        onDragStart={() => setArrastando({ id: t.id, statusOrigem: col.id })}
+                        onDragEnd={() => setArrastando(null)}
+                        style={{
+                          background: "#fff", borderRadius: 8, padding: "10px 12px",
+                          border: `1px solid ${urg ? urg.cor + "44" : C.borda}`,
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                          cursor: "grab", display: "flex", flexDirection: "column", gap: 6,
+                          opacity: arrastando?.id === t.id ? 0.5 : 1,
+                          transition: "opacity 0.15s",
+                        }}
+                      >
+                        {/* Grupo + CR */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: C.azul, fontFamily: "monospace", background: C.azulClaro, padding: "1px 6px", borderRadius: 4 }}>
+                            CR {t.cr}
+                          </span>
+                          <span style={{ fontSize: 10, color: C.cinzaClaro, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>
+                            {t.grupo}
+                          </span>
+                        </div>
+
+                        {/* Ação */}
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.cinzaEscuro, lineHeight: 1.4 }}>{t.acao}</div>
+
+                        {/* Prazo */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                          <div style={{
+                            fontSize: 10, padding: "2px 7px", borderRadius: 4,
+                            background: urg ? urg.bg : "#f0f4f8",
+                            color: urg ? urg.cor : C.cinzaClaro,
+                            fontWeight: urg ? 700 : 400,
+                          }}>
+                            {urg ? `⚠ ${urg.label}` : ""} {t.prazo ? new Date(t.prazo + "T12:00:00").toLocaleDateString("pt-BR") : "Sem prazo"}
+                          </div>
+                          {proxStatus && (
+                            <button
+                              onClick={() => moverTarefa(t.id, proxStatus.id)}
+                              title={`Mover para ${proxStatus.label}`}
+                              style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: `1px solid ${proxStatus.cor}55`, background: proxStatus.bg, color: proxStatus.cor, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}
+                            >
+                              → {proxStatus.label}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {cards.length === 0 && (
+                    <div style={{ textAlign: "center", padding: "24px 12px", color: C.cinzaClaro, fontSize: 11, borderRadius: 6, border: `1.5px dashed ${C.borda}` }}>
+                      Arraste um card aqui
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Manual de Uso ───────────────────────────────────────────────────────────
 const MANUAL_ABAS = [
   {
@@ -1628,16 +1812,29 @@ export default function App() {
       const key = campoMap[campo];
       return key ? { ...d, [key]: valor } : d;
     }));
-  }, []);
+
+    // Gatilho automático: quando status muda para "Em Negociação", gera tarefas
+    if (campo === "Status Real" && valor === "Em Negociação") {
+      const dadoCR = dados.find(d => d.cr === cr);
+      if (dadoCR) {
+        fetch("/api/create-tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cr, grupo: dadoCR.grupoCliente || "Sem Grupo" }),
+        }).catch(() => {}); // silencioso — não bloqueia o fluxo
+      }
+    }
+  }, [dados]);
 
   const limparFiltros = () => setFiltros({ busca: "", filtroMes: [], filtroGerente: [], filtroStatus: [], filtroTipo: "" });
 
   const SECOES = [
-    { id: "gerencial", label: "Gestão de Reajuste",  icon: "📋" },
-    { id: "economico", label: "Controle Econômico",  icon: "📈" },
-    { id: "clientes",  label: "Visão do Cliente",    icon: "◉" },
-    { id: "vencimentos", label: "Vencimentos Contratuais", icon: "📅" },
-    { id: "matriz",    label: "Matriz de Reajuste",  icon: null, svgIcon: (
+    { id: "gerencial",    label: "Gestão de Reajuste",      icon: "📋" },
+    { id: "economico",    label: "Controle Econômico",       icon: "📈" },
+    { id: "clientes",     label: "Visão do Cliente",         icon: "◉" },
+    { id: "vencimentos",  label: "Vencimentos Contratuais",  icon: "📅" },
+    { id: "negociacoes",  label: "Negociações",              icon: "🗂" },
+    { id: "matriz",       label: "Matriz de Reajuste",       icon: null, svgIcon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7"/>
         <polyline points="14 2 14 8 20 8"/>
@@ -1656,7 +1853,9 @@ export default function App() {
     "economico": "Controle Econômico",
     "clientes":  "Visão do Cliente",
     "matriz":    "Matriz de Reajuste",
-    "vencimentos": "Vencimentos Contratuais",
+    "vencimentos":  "Vencimentos Contratuais",
+    "negociacoes":  "Negociações",
+    "manual":       "Manual de Instruções",
   };
   const secaoAtual = SECOES.find(s => s.id === secao);
 
@@ -1874,6 +2073,8 @@ export default function App() {
             <SecaoClientes dados={dados} onUpdate={onUpdate} setToast={setToast} />
           ) : secao === "vencimentos" ? (
             <SecaoVencimentos dados={dados} />
+          ) : secao === "negociacoes" ? (
+            <SecaoNegociacoes setToast={setToast} />
           ) : secao === "manual" ? (
             <SecaoManual />
           ) : (
