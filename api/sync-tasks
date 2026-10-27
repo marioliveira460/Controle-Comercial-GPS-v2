@@ -1,0 +1,146 @@
+const { google } = require("googleapis");
+
+const SPREADSHEET_ID = "1Mw46A8j0c5-6VyOY8K7bEFPTnEGLh6nG-lL5jEXe2G0";
+const SHEET_GERENCIAL = "Gerencial";
+const TASKS_SHEET = "Tarefas";
+
+const SEQUENCIA = [
+  { diasOffset: 0,  acao: "Enviar proposta por email" },
+  { diasOffset: 7,  acao: "Follow-up por email" },
+  { diasOffset: 14, acao: "Cobrar retorno via email" },
+  { diasOffset: 21, acao: "Agendar reunião" },
+  { diasOffset: 30, acao: "Envolver gestor de relacionamento" },
+  { diasOffset: 45, acao: "Escalada — decisão final" },
+];
+
+const HEADER_TAREFAS = ["ID", "CR", "Grupo", "Ação", "Prazo", "Status", "Criado em", "Concluído em"];
+
+function addDias(date, dias) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + dias);
+  return d.toISOString().split("T")[0];
+}
+
+function gerarId() {
+  return `T${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
+
+module.exports = async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  // Aceita GET (cron do Vercel) e POST (chamada manual)
+  if (req.method !== "GET" && req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  try {
+    const credRaw = process.env.GOOGLE_SERVICE_ACCOUNT;
+    if (!credRaw) throw new Error("GOOGLE_SERVICE_ACCOUNT não configurado");
+
+    const cred = JSON.parse(credRaw);
+    const auth = new google.auth.GoogleAuth({
+      credentials: cred,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+    const sheets = google.sheets({ version: "v4", auth });
+
+    // ── 1. Lê a aba Gerencial ──────────────────────────────────────────────
+    const gerResp = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: SHEET_GERENCIAL,
+    });
+    const gerRows = gerResp.data.values || [];
+    if (gerRows.length < 2) return res.status(200).json({ ok: true, criados: 0, mensagem: "Planilha vazia" });
+
+    const gerHeader = gerRows[0];
+    const idx = (col) => gerHeader.findIndex(h => h?.toString().trim().toLowerCase() === col.toLowerCase());
+
+    const idxCR     = idx("CR");
+    const idxGrupo  = idx("Grupo Cliente");
+    const idxStatus = idx("Status Real");
+
+    // CRs com "Em Negociação"
+    const emNegociacao = gerRows.slice(1)
+      .filter(r => String(r[idxStatus] || "").trim() === "Em Negociação")
+      .map(r => ({
+        cr:    String(r[idxCR]    || "").trim(),
+        grupo: String(r[idxGrupo] || "Sem Grupo").trim(),
+      }))
+      .filter(r => r.cr);
+
+    if (emNegociacao.length === 0) {
+      return res.status(200).json({ ok: true, criados: 0, mensagem: "Nenhum CR em negociação" });
+    }
+
+    // ── 2. Garante que a aba Tarefas existe ───────────────────────────────
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const abaExiste = meta.data.sheets.some(s => s.properties.title === TASKS_SHEET);
+
+    if (!abaExiste) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        requestBody: { requests: [{ addSheet: { properties: { title: TASKS_SHEET } } }] },
+      });
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${TASKS_SHEET}!A1`,
+        valueInputOption: "USER_ENTERED",
+        requestBody: { values: [HEADER_TAREFAS] },
+      });
+    }
+
+    // ── 3. Lê tarefas existentes para não duplicar ─────────────────────────
+    const tasksResp = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${TASKS_SHEET}!A:C`,
+    });
+    const tasksRows = tasksResp.data.values || [];
+    const crsComTarefas = new Set(
+      tasksRows.slice(1).map(r => String(r[1] || "").trim()).filter(Boolean)
+    );
+
+    // ── 4. Gera tarefas para CRs novos ────────────────────────────────────
+    const hoje = new Date().toISOString().split("T")[0];
+    const novasTarefas = [];
+
+    for (const { cr, grupo } of emNegociacao) {
+      if (crsComTarefas.has(cr)) continue; // já tem tarefas
+      for (const { diasOffset, acao } of SEQUENCIA) {
+        novasTarefas.push([
+          gerarId(),
+          cr,
+          grupo,
+          acao,
+          addDias(hoje, diasOffset),
+          "A fazer",
+          hoje,
+          "",
+        ]);
+      }
+    }
+
+    if (novasTarefas.length > 0) {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${TASKS_SHEET}!A:H`,
+        valueInputOption: "USER_ENTERED",
+        insertDataOption: "INSERT_ROWS",
+        requestBody: { values: novasTarefas },
+      });
+    }
+
+    const criados = novasTarefas.length / SEQUENCIA.length;
+    return res.status(200).json({
+      ok: true,
+      criados,
+      tarefasGeradas: novasTarefas.length,
+      mensagem: criados > 0
+        ? `${criados} CR(s) novos em negociação — ${novasTarefas.length} tarefas criadas`
+        : "Nenhuma tarefa nova — todos os CRs já tinham tarefas",
+    });
+
+  } catch (e) {
+    console.error("sync-tasks error:", e.message);
+    return res.status(500).json({ error: e.message });
+  }
+};
