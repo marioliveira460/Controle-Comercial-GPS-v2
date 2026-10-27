@@ -866,6 +866,13 @@ const SecaoVencimentos = ({ dados }) => {
 const SecaoMatriz = ({ dados }) => {
   const [busca, setBusca] = useState("");
   const [grupoAberto, setGrupoAberto] = useState({});
+  const [filtroIndices, setFiltroIndices] = useState([]);
+
+  const toggleIndice = (indice) => {
+    setFiltroIndices(prev =>
+      prev.includes(indice) ? prev.filter(i => i !== indice) : [...prev, indice]
+    );
+  };
 
   const grupos = useMemo(() => {
     const map = {};
@@ -880,21 +887,24 @@ const SecaoMatriz = ({ dados }) => {
   }, [dados]);
 
   const filtrados = useMemo(() => {
-    if (!busca.trim()) return grupos;
-    const q = busca.toLowerCase();
+    const q = busca.toLowerCase().trim();
     return grupos
       .map(({ grupo, crs }) => ({
         grupo,
-        crs: crs.filter(d =>
-          String(d.cr || "").toLowerCase().includes(q) ||
-          String(d.descricaoCR || "").toLowerCase().includes(q) ||
-          String(d.grupoCliente || "").toLowerCase().includes(q) ||
-          String(d.indiceContratual || "").toLowerCase().includes(q) ||
-          String(d.sindicato || "").toLowerCase().includes(q)
-        )
+        crs: crs.filter(d => {
+          const matchBusca = !q ||
+            String(d.cr || "").toLowerCase().includes(q) ||
+            String(d.descricaoCR || "").toLowerCase().includes(q) ||
+            String(d.grupoCliente || "").toLowerCase().includes(q) ||
+            String(d.indiceContratual || "").toLowerCase().includes(q) ||
+            String(d.sindicato || "").toLowerCase().includes(q);
+          const matchIndice = filtroIndices.length === 0 ||
+            filtroIndices.includes(d.indiceContratual?.trim() || "Não definido");
+          return matchBusca && matchIndice;
+        })
       }))
       .filter(({ crs }) => crs.length > 0);
-  }, [grupos, busca]);
+  }, [grupos, busca, filtroIndices]);
 
   const toggleGrupo = (g) => setGrupoAberto(v => ({ ...v, [g]: !v[g] }));
   const todosAbertos = filtrados.every(({ grupo }) => grupoAberto[grupo] !== false);
@@ -935,29 +945,54 @@ const SecaoMatriz = ({ dados }) => {
 
       {/* Card de resumo por índice */}
       <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.borda}`, padding: "16px 20px" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.cinzaClaro, letterSpacing: "0.08em", marginBottom: 14, textTransform: "uppercase" }}>
-          Resumo de Diretrizes
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: C.cinzaClaro, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            Resumo de Diretrizes
+          </span>
+          {filtroIndices.length > 0 && (
+            <button onClick={() => setFiltroIndices([])} style={{
+              fontSize: 11, padding: "2px 10px", borderRadius: 20,
+              border: `1px solid ${C.borda}`, background: "#f5f8fa",
+              color: C.cinzaMedio, cursor: "pointer", fontFamily: "inherit",
+            }}>
+              Limpar filtro ✕
+            </button>
+          )}
+          {filtroIndices.length > 0 && (
+            <span style={{ fontSize: 11, color: C.cinzaClaro, marginLeft: "auto" }}>
+              {filtroIndices.length} índice{filtroIndices.length > 1 ? "s" : ""} selecionado{filtroIndices.length > 1 ? "s" : ""}
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
           {resumoIndices.map(([indice, count], i) => {
             const cor = INDICE_COR[i % INDICE_COR.length];
             const pct = ((count / dados.length) * 100).toFixed(0);
+            const ativo = filtroIndices.includes(indice);
+            const temFiltro = filtroIndices.length > 0;
+            const opacidade = temFiltro && !ativo ? 0.35 : 1;
             return (
-              <div key={indice} style={{
+              <button key={indice} onClick={() => toggleIndice(indice)} style={{
                 display: "flex", alignItems: "center", gap: 10,
-                padding: "8px 14px", borderRadius: 8,
-                background: cor.bg, border: `1px solid ${cor.color}22`,
-                minWidth: 180,
+                padding: "8px 14px", borderRadius: 8, cursor: "pointer",
+                background: ativo ? cor.bg : "#f8fafb",
+                border: `1.5px solid ${ativo ? cor.color : C.borda}`,
+                minWidth: 180, textAlign: "left", fontFamily: "inherit",
+                opacity: opacidade,
+                transition: "all 0.15s",
+                boxShadow: ativo ? `0 0 0 3px ${cor.color}22` : "none",
+                transform: ativo ? "translateY(-1px)" : "none",
               }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: cor.color, flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: cor.color }}>{indice}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: ativo ? cor.color : C.cinzaMedio }}>{indice}</div>
                   <div style={{ fontSize: 11, color: C.cinzaMedio, marginTop: 1 }}>
-                    <b style={{ color: C.cinzaEscuro }}>{count}</b> CR{count !== 1 ? "s" : ""}
+                    <b style={{ color: ativo ? C.cinzaEscuro : C.cinzaMedio }}>{count}</b> CR{count !== 1 ? "s" : ""}
                     <span style={{ color: C.cinzaClaro }}> · {pct}%</span>
                   </div>
                 </div>
-              </div>
+                {ativo && <span style={{ fontSize: 10, color: cor.color, flexShrink: 0 }}>✓</span>}
+              </button>
             );
           })}
         </div>
