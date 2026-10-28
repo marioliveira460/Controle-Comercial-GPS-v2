@@ -788,21 +788,19 @@ const SecaoNegociacoes = ({ setToast }) => {
                     {cards.map(t => {
                       const dCor = corDias(t.dias);
                       return (
-                        <div key={t.cr} style={{
+                                               <div key={t.cr} style={{
                           background: "#fff", borderRadius: 7, padding: "8px 10px",
                           border: `1px solid ${C.borda}`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                          display: "flex", flexDirection: "column", gap: 5,
+                          display: "flex", flexDirection: "column", gap: 5, alignItems: "center", textAlign: "center",
                         }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: C.azul, fontFamily: "monospace", background: C.azulClaro, padding: "1px 5px", borderRadius: 3 }}>
-                              {t.cr}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: 11, color: C.cinzaEscuro, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.grupo}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: C.azul, fontFamily: "monospace", background: C.azulClaro, padding: "1px 5px", borderRadius: 3 }}>
+                            {t.cr}
+                          </span>
+                          <div style={{ fontSize: 11, color: C.cinzaEscuro, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }} title={t.grupo}>
                             {t.grupo}
                           </div>
                           <div style={{
-                            fontSize: 10, padding: "2px 6px", borderRadius: 4, alignSelf: "flex-start",
+                            fontSize: 10, padding: "2px 6px", borderRadius: 4,
                             background: dCor.bg, color: dCor.color, fontWeight: 700,
                           }}>
                             {t.dias}d em aberto
