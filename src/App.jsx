@@ -838,7 +838,7 @@ const SecaoNegociacoes = ({ setToast }) => {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr style={{ background: "#f8fafc" }}>
-                  {["CR","Grupo Cliente","Ação","Início Negociação","Última Atualização"].map(h => (
+                  {["CR","Grupo Cliente","Tipo de Negócio","Ação","Início Negociação","Última Atualização"].map(h => (
                     <th key={h} style={{ padding: "9px 14px", textAlign: "left", color: C.cinzaClaro, fontWeight: 600, fontSize: 11, borderBottom: `1px solid ${C.borda}`, whiteSpace: "nowrap" }}>{h}</th>
                   ))}
                 </tr>
@@ -850,6 +850,17 @@ const SecaoNegociacoes = ({ setToast }) => {
                     <tr key={t.cr} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
                       <td style={{ padding: "9px 14px", fontFamily: "monospace", color: C.cinzaMedio, fontSize: 11 }}>{t.cr}</td>
                       <td style={{ padding: "9px 14px", color: C.cinzaEscuro, fontWeight: 500 }}>{t.grupo}</td>
+                      <td style={{ padding: "9px 14px" }}>
+                        {t.tipo ? (
+                          <span style={{
+                            display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700,
+                            background: TIPO_BG[t.tipo] || C.azulClaro,
+                            color: TIPO_COR[t.tipo] || C.azul,
+                          }}>
+                            {t.tipo}
+                          </span>
+                        ) : <span style={{ color: C.cinzaClaro }}>—</span>}
+                      </td>
                       <td style={{ padding: "9px 14px" }}>
                         <span style={{
                           display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
