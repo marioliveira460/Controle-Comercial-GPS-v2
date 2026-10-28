@@ -38,17 +38,28 @@ module.exports = async (req, res) => {
     const [header, ...data] = rows;
     const idx = (col) => header.findIndex(h => h?.trim() === col);
 
+    // Colunas da aba Tarefas gerada pelo syncTarefas.gs:
+    // CR | Grupo Cliente | Status Real | Ação Atual | Etapa | Dias em Aberto | Inicio Negociação | Última Atualização
+    const iCR         = idx("CR");
+    const iGrupo      = idx("Grupo Cliente");
+    const iStatusReal = idx("Status Real");
+    const iAcao       = idx("Ação Atual");
+    const iEtapa      = idx("Etapa");
+    const iDias       = idx("Dias em Aberto");
+    const iInicio     = idx("Inicio Negociação");
+    const iUltAtt     = idx("Última Atualização");
+
     const tarefas = data
-      .filter(r => r.some(c => c?.trim()))
+      .filter(r => r[iCR]?.trim())
       .map(r => ({
-        id:          r[idx("ID")]           || "",
-        cr:          r[idx("CR")]           || "",
-        grupo:       r[idx("Grupo")]        || "",
-        acao:        r[idx("Ação")]         || "",
-        prazo:       r[idx("Prazo")]        || "",
-        status:      r[idx("Status")]       || "A fazer",
-        criadoEm:    r[idx("Criado em")]    || "",
-        concluidoEm: r[idx("Concluído em")] || "",
+        cr:          r[iCR]         || "",
+        grupo:       r[iGrupo]      || "",
+        statusReal:  r[iStatusReal] || "",
+        acao:        r[iAcao]       || "",
+        etapa:       r[iEtapa]      || "",
+        dias:        parseInt(r[iDias] || "0", 10) || 0,
+        inicioNeg:   r[iInicio]     || "",
+        ultimaAtt:   r[iUltAtt]     || "",
       }));
 
     return res.status(200).json({ tarefas });
