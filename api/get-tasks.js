@@ -29,7 +29,7 @@ module.exports = async (req, res) => {
 
     const resp = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${TASKS_SHEET}!A:H`,
+      range: `${TASKS_SHEET}!A:I`,
     });
 
     const rows = resp.data.values || [];
@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
     const idx = (col) => header.findIndex(h => h?.trim() === col);
 
     // Colunas da aba Tarefas gerada pelo syncTarefas.gs:
-    // CR | Grupo Cliente | Status Real | Ação Atual | Etapa | Dias em Aberto | Inicio Negociação | Última Atualização
+    // CR | Grupo Cliente | Status Real | Ação Atual | Etapa | Dias em Aberto | Inicio Negociação | Última Atualização | Tipo de Negócio
     const iCR         = idx("CR");
     const iGrupo      = idx("Grupo Cliente");
     const iStatusReal = idx("Status Real");
@@ -48,6 +48,7 @@ module.exports = async (req, res) => {
     const iDias       = idx("Dias em Aberto");
     const iInicio     = idx("Inicio Negociação");
     const iUltAtt     = idx("Última Atualização");
+    const iTipo       = idx("Tipo de Negócio");
 
     const tarefas = data
       .filter(r => r[iCR]?.trim())
@@ -60,6 +61,7 @@ module.exports = async (req, res) => {
         dias:        parseInt(r[iDias] || "0", 10) || 0,
         inicioNeg:   r[iInicio]     || "",
         ultimaAtt:   r[iUltAtt]     || "",
+        tipo:        r[iTipo]       || "",
       }));
 
     return res.status(200).json({ tarefas });
