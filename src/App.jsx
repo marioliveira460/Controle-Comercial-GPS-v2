@@ -689,18 +689,27 @@ const parseVencimento = (str) => {
 
 const mesNome = (d) => d.toLocaleString("pt-BR", { month: "long", year: "numeric" });
 
-// ─── Seção Negociações (Kanban) ──────────────────────────────────────────────
-const COLUNAS_KANBAN = [
-  { id: "A fazer",             label: "A Fazer",              cor: C.cinzaMedio,  bg: "#f8fafb" },
-  { id: "Em andamento",        label: "Em Andamento",         cor: C.azul,        bg: C.azulClaro },
-  { id: "Aguardando resposta", label: "Aguardando Resposta",  cor: C.laranja,     bg: C.laranjaClaro },
-  { id: "Concluído",           label: "Concluído",            cor: C.verde,       bg: C.verdeClaro },
+// ─── Seção Negociações (Kanban Pendente Cliente + Lista Pendente GPS) ─────────
+
+// Etapas do kanban Pendente Cliente (baseado em dias em aberto)
+const ETAPAS_KANBAN = [
+  { etapa: "Etapa 1/5", label: "Enviado ao cliente",              cor: C.azul,        bg: C.azulClaro },
+  { etapa: "Etapa 2/5", label: "Follow-up via e-mail",            cor: C.azulMedio,   bg: C.azulClaro },
+  { etapa: "Etapa 3/5", label: "Follow-up via e-mail (2ª cobr.)", cor: C.laranja,     bg: C.laranjaClaro },
+  { etapa: "Etapa 4/5", label: "Follow-up via Teams/Reunião",     cor: C.laranja,     bg: C.laranjaClaro },
+  { etapa: "Etapa 5/5", label: "Escalar Internamente",            cor: C.vermelho,    bg: C.vermelhoClaro },
 ];
+
+const corDias = (dias) => {
+  if (dias >= 28) return { color: C.vermelho, bg: C.vermelhoClaro };
+  if (dias >= 14) return { color: C.laranja,  bg: C.laranjaClaro };
+  return { color: C.verde, bg: C.verdeClaro };
+};
 
 const SecaoNegociacoes = ({ setToast }) => {
   const [tarefas, setTarefas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [arrastando, setArrastando] = useState(null); // { id, statusOrigem }
+  const [abaAtiva, setAbaAtiva] = useState("cliente"); // "cliente" | "gps"
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -710,164 +719,153 @@ const SecaoNegociacoes = ({ setToast }) => {
       setTarefas(data.tarefas || []);
     } catch { setToast("Erro ao carregar tarefas"); }
     finally { setLoading(false); }
-  }, []);
+  }, [setToast]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  const moverTarefa = async (id, novoStatus) => {
-    // Atualiza otimisticamente
-    setTarefas(prev => prev.map(t => t.id === id ? { ...t, status: novoStatus, concluidoEm: novoStatus === "Concluído" ? new Date().toISOString().split("T")[0] : t.concluidoEm } : t));
-    try {
-      const r = await fetch("/api/update-task", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: novoStatus }),
-      });
-      if (!r.ok) throw new Error();
-      setToast("Tarefa atualizada");
-    } catch {
-      setToast("Erro ao atualizar — recarregando…");
-      carregar();
-    }
-  };
-
-  const hoje = new Date().toISOString().split("T")[0];
-
-  const urgenciaPrazo = (prazo) => {
-    if (!prazo) return null;
-    const diff = (new Date(prazo) - new Date(hoje)) / (1000 * 60 * 60 * 24);
-    if (diff < 0)  return { cor: C.vermelho, bg: C.vermelhoClaro, label: "Vencido" };
-    if (diff <= 2) return { cor: C.laranja,  bg: C.laranjaClaro,  label: "Hoje/Amanhã" };
-    return null;
-  };
+  const pendCliente = useMemo(() => tarefas.filter(t => t.statusReal === "Pendente Cliente"), [tarefas]);
+  const pendGPS     = useMemo(() => tarefas.filter(t => t.statusReal === "Pendente GPS"),     [tarefas]);
 
   if (loading) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: C.cinzaClaro, gap: 10 }}>
-      <span style={{ fontSize: 20 }}>⏳</span> Carregando tarefas…
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: C.cinzaClaro, gap: 10 }}>
+      Carregando negociações…
     </div>
   );
 
   return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, height: "100%", boxSizing: "border-box" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
       {/* Cabeçalho */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 13, color: C.cinzaMedio }}>
-            {tarefas.length} tarefa{tarefas.length !== 1 ? "s" : ""} · {tarefas.filter(t => t.status !== "Concluído").length} em aberto
-          </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[
+            { id: "cliente", label: `Pendente Cliente (${pendCliente.length})`, cor: C.laranja },
+            { id: "gps",     label: `Pendente GPS (${pendGPS.length})`,         cor: C.azul },
+          ].map(ab => (
+            <button key={ab.id} onClick={() => setAbaAtiva(ab.id)} style={{
+              padding: "6px 16px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+              border: `1.5px solid ${abaAtiva === ab.id ? ab.cor : C.borda}`,
+              background: abaAtiva === ab.id ? ab.cor : "#fff",
+              color: abaAtiva === ab.id ? "#fff" : C.cinzaMedio,
+              transition: "all 0.12s",
+            }}>{ab.label}</button>
+          ))}
         </div>
         <button onClick={carregar} style={{ marginLeft: "auto", fontSize: 12, padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.borda}`, background: "#fff", color: C.cinzaMedio, cursor: "pointer", fontFamily: "inherit" }}>
           ↻ Atualizar
         </button>
       </div>
 
-      {tarefas.length === 0 ? (
-        <div style={{ textAlign: "center", padding: 60, color: C.cinzaClaro }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>🗂</div>
-          <div style={{ fontWeight: 600, marginBottom: 6 }}>Nenhuma tarefa ainda</div>
-          <div style={{ fontSize: 13 }}>As tarefas são criadas automaticamente quando um CR entra em "Em Negociação".</div>
-        </div>
-      ) : (
-        /* Kanban */
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, flex: 1, minHeight: 0 }}>
-          {COLUNAS_KANBAN.map(col => {
-            const cards = tarefas.filter(t => t.status === col.id);
-            return (
-              <div
-                key={col.id}
-                onDragOver={e => e.preventDefault()}
-                onDrop={e => {
-                  e.preventDefault();
-                  if (arrastando && arrastando.statusOrigem !== col.id) {
-                    moverTarefa(arrastando.id, col.id);
-                  }
-                  setArrastando(null);
-                }}
-                style={{ display: "flex", flexDirection: "column", gap: 0, minHeight: 200 }}
-              >
-                {/* Header da coluna */}
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "8px 12px", borderRadius: "8px 8px 0 0",
-                  background: col.bg, border: `1px solid ${col.cor}33`,
-                  borderBottom: "none",
-                }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.cor }} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: col.cor }}>{col.label}</span>
-                  <span style={{ marginLeft: "auto", fontSize: 11, color: col.cor, opacity: 0.7, fontWeight: 600 }}>{cards.length}</span>
-                </div>
-
-                {/* Cards */}
-                <div style={{
-                  flex: 1, overflowY: "auto", padding: "8px",
-                  background: "#f5f8fa", border: `1px solid ${col.cor}22`,
-                  borderRadius: "0 0 8px 8px", display: "flex", flexDirection: "column", gap: 8,
-                }}>
-                  {cards.map(t => {
-                    const urg = urgenciaPrazo(t.prazo);
-                    const proxStatus = COLUNAS_KANBAN.find((c, i, arr) => i === arr.findIndex(x => x.id === col.id) + 1);
-                    return (
-                      <div
-                        key={t.id}
-                        draggable
-                        onDragStart={() => setArrastando({ id: t.id, statusOrigem: col.id })}
-                        onDragEnd={() => setArrastando(null)}
-                        style={{
-                          background: "#fff", borderRadius: 8, padding: "10px 12px",
-                          border: `1px solid ${urg ? urg.cor + "44" : C.borda}`,
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                          cursor: "grab", display: "flex", flexDirection: "column", gap: 6,
-                          opacity: arrastando?.id === t.id ? 0.5 : 1,
-                          transition: "opacity 0.15s",
-                        }}
-                      >
-                        {/* Grupo + CR */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: C.azul, fontFamily: "monospace", background: C.azulClaro, padding: "1px 6px", borderRadius: 4 }}>
-                            CR {t.cr}
-                          </span>
-                          <span style={{ fontSize: 10, color: C.cinzaClaro, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>
-                            {t.grupo}
-                          </span>
-                        </div>
-
-                        {/* Ação */}
-                        <div style={{ fontSize: 12, fontWeight: 600, color: C.cinzaEscuro, lineHeight: 1.4 }}>{t.acao}</div>
-
-                        {/* Prazo */}
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                          <div style={{
-                            fontSize: 10, padding: "2px 7px", borderRadius: 4,
-                            background: urg ? urg.bg : "#f0f4f8",
-                            color: urg ? urg.cor : C.cinzaClaro,
-                            fontWeight: urg ? 700 : 400,
-                          }}>
-                            {urg ? `⚠ ${urg.label}` : ""} {t.prazo ? new Date(t.prazo + "T12:00:00").toLocaleDateString("pt-BR") : "Sem prazo"}
+      {/* ── ABA: PENDENTE CLIENTE — Kanban 5 etapas ── */}
+      {abaAtiva === "cliente" && (
+        pendCliente.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 60, color: C.cinzaClaro }}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>Nenhum CR Pendente Cliente</div>
+            <div style={{ fontSize: 13 }}>Execute o syncTarefas na planilha para atualizar.</div>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, overflowX: "auto" }}>
+            {ETAPAS_KANBAN.map(col => {
+              const cards = pendCliente.filter(t => t.etapa === col.etapa);
+              return (
+                <div key={col.etapa} style={{ display: "flex", flexDirection: "column", minWidth: 160 }}>
+                  {/* Header */}
+                  <div style={{
+                    padding: "7px 10px", borderRadius: "8px 8px 0 0",
+                    background: col.bg, border: `1px solid ${col.cor}33`, borderBottom: "none",
+                    display: "flex", alignItems: "center", gap: 6,
+                  }}>
+                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: col.cor, flexShrink: 0 }} />
+                    <span style={{ fontSize: 10, fontWeight: 700, color: col.cor, lineHeight: 1.3 }}>{col.label}</span>
+                    <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: col.cor }}>{cards.length}</span>
+                  </div>
+                  {/* Cards */}
+                  <div style={{
+                    flex: 1, padding: 6, background: "#f5f8fa",
+                    border: `1px solid ${col.cor}22`, borderRadius: "0 0 8px 8px",
+                    display: "flex", flexDirection: "column", gap: 6, minHeight: 100,
+                  }}>
+                    {cards.map(t => {
+                      const dCor = corDias(t.dias);
+                      return (
+                        <div key={t.cr} style={{
+                          background: "#fff", borderRadius: 7, padding: "8px 10px",
+                          border: `1px solid ${C.borda}`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                          display: "flex", flexDirection: "column", gap: 5,
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: C.azul, fontFamily: "monospace", background: C.azulClaro, padding: "1px 5px", borderRadius: 3 }}>
+                              {t.cr}
+                            </span>
                           </div>
-                          {proxStatus && (
-                            <button
-                              onClick={() => moverTarefa(t.id, proxStatus.id)}
-                              title={`Mover para ${proxStatus.label}`}
-                              style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: `1px solid ${proxStatus.cor}55`, background: proxStatus.bg, color: proxStatus.cor, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}
-                            >
-                              → {proxStatus.label}
-                            </button>
-                          )}
+                          <div style={{ fontSize: 11, color: C.cinzaEscuro, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.grupo}>
+                            {t.grupo}
+                          </div>
+                          <div style={{
+                            fontSize: 10, padding: "2px 6px", borderRadius: 4, alignSelf: "flex-start",
+                            background: dCor.bg, color: dCor.color, fontWeight: 700,
+                          }}>
+                            {t.dias}d em aberto
+                          </div>
                         </div>
+                      );
+                    })}
+                    {cards.length === 0 && (
+                      <div style={{ textAlign: "center", padding: "16px 8px", color: C.borda, fontSize: 10, border: `1.5px dashed ${C.borda}`, borderRadius: 6 }}>
+                        Sem CRs
                       </div>
-                    );
-                  })}
-
-                  {cards.length === 0 && (
-                    <div style={{ textAlign: "center", padding: "24px 12px", color: C.cinzaClaro, fontSize: 11, borderRadius: 6, border: `1.5px dashed ${C.borda}` }}>
-                      Arraste um card aqui
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )
+      )}
+
+      {/* ── ABA: PENDENTE GPS — Lista com ação ── */}
+      {abaAtiva === "gps" && (
+        pendGPS.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 60, color: C.cinzaClaro }}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>Nenhum CR Pendente GPS</div>
+            <div style={{ fontSize: 13 }}>Execute o syncTarefas na planilha para atualizar.</div>
+          </div>
+        ) : (
+          <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.borda}`, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: "#f8fafc" }}>
+                  {["CR","Grupo Cliente","Ação","Início Negociação","Última Atualização"].map(h => (
+                    <th key={h} style={{ padding: "9px 14px", textAlign: "left", color: C.cinzaClaro, fontWeight: 600, fontSize: 11, borderBottom: `1px solid ${C.borda}`, whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pendGPS.map((t, i) => {
+                  const enviar = t.acao === "Enviar ao cliente";
+                  return (
+                    <tr key={t.cr} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                      <td style={{ padding: "9px 14px", fontFamily: "monospace", color: C.cinzaMedio, fontSize: 11 }}>{t.cr}</td>
+                      <td style={{ padding: "9px 14px", color: C.cinzaEscuro, fontWeight: 500 }}>{t.grupo}</td>
+                      <td style={{ padding: "9px 14px" }}>
+                        <span style={{
+                          display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+                          background: enviar ? C.verdeClaro : C.azulClaro,
+                          color: enviar ? C.verde : C.azul,
+                          border: `1px solid ${enviar ? C.verde : C.azul}33`,
+                        }}>
+                          {t.acao || "—"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "9px 14px", color: C.cinzaMedio, whiteSpace: "nowrap" }}>{t.inicioNeg || "—"}</td>
+                      <td style={{ padding: "9px 14px", color: C.cinzaClaro, whiteSpace: "nowrap" }}>{t.ultimaAtt || "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
     </div>
   );
