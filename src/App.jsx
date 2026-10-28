@@ -788,7 +788,7 @@ const SecaoNegociacoes = ({ setToast }) => {
                     {cards.map(t => {
                       const dCor = corDias(t.dias);
                       return (
-                                               <div key={t.cr} style={{
+                        <div key={t.cr} style={{
                           background: "#fff", borderRadius: 7, padding: "8px 10px",
                           border: `1px solid ${C.borda}`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
                           display: "flex", flexDirection: "column", gap: 5, alignItems: "center", textAlign: "center",
@@ -799,6 +799,11 @@ const SecaoNegociacoes = ({ setToast }) => {
                           <div style={{ fontSize: 11, color: C.cinzaEscuro, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }} title={t.grupo}>
                             {t.grupo}
                           </div>
+                          {t.tipo && (
+                            <div style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: TIPO_BG[t.tipo] || C.azulClaro, color: TIPO_COR[t.tipo] || C.azul, fontWeight: 700 }}>
+                              {t.tipo}
+                            </div>
+                          )}
                           <div style={{
                             fontSize: 10, padding: "2px 6px", borderRadius: 4,
                             background: dCor.bg, color: dCor.color, fontWeight: 700,
