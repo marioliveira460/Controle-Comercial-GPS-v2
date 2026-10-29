@@ -1789,8 +1789,6 @@ export default function App() {
     setUsuario(null); setToken(null);
   }
 
-  if (!usuario || !token) return <Login onLogin={handleLogin} />;
-
   const [secao, setSecao] = useState("gerencial");
   const [menuAberto, setMenuAberto] = useState(true);
   const [filtrosAberto, setFiltrosAberto] = useState(false);
@@ -1885,6 +1883,8 @@ export default function App() {
     "manual":       "Manual de Instruções",
   };
   const secaoAtual = SECOES.find(s => s.id === secao);
+
+  if (!usuario || !token) return <Login onLogin={handleLogin} />;
 
   return (
     <div style={{ display: "flex", height: "100vh", background: "#f5f8fa", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", overflow: "hidden" }}>
