@@ -1,8 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800&display=swap";
+    document.head.appendChild(link);
+    return () => document.head.removeChild(link);
+  }, []);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +40,7 @@ export default function Login({ onLogin }) {
     <div style={{
       display: "flex",
       minHeight: "100vh",
-      fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
+      fontFamily: "'Nunito Sans', 'Myriad Pro', 'Segoe UI', Arial, sans-serif",
     }}>
       {/* ── LADO ESQUERDO (60%) ─────────────────────────────────────── */}
       <div style={{
