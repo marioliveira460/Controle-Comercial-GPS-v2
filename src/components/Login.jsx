@@ -147,7 +147,7 @@ export default function Login({ onLogin }) {
         {/* Logo In-Haus */}
         <div style={{ marginBottom: 32, textAlign: "center" }}>
           <img
-            src="/logo-inhaus.jpeg"
+            src="/logo-inhaus.png"
             alt="In-Haus Logística"
             style={{
               height: 80,
