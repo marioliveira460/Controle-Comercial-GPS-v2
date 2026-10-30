@@ -154,6 +154,9 @@ const parseGerencial = (values) => {
   const iDataBase = idx("Data Base CCT");
   const iProdut = idx("Cláusula de Produtividade");
   const iSind = idx("Sindicato");
+  const iProxAcao = idx("Próxima Ação");
+  const iEtapa = idx("Etapa");
+  const iUltAtt = idx("Última Atualização");
 
   return rows.filter(r => r && r[iCR]).map((r, i) => ({
     _idx: i + 1,
@@ -179,6 +182,9 @@ const parseGerencial = (values) => {
     clausulaProdutividade: r[iProdut] ?? "",
     sindicato: r[iSind] || "",
     vencimentoContrato: r[idx("Vencimento do Contrato")] || "",
+    proximaAcao: iProxAcao >= 0 ? (r[iProxAcao] || "") : "",
+    etapa: iEtapa >= 0 ? (r[iEtapa] || "") : "",
+    ultimaAtt: iUltAtt >= 0 ? (r[iUltAtt] || "") : "",
   }));
 };
 
@@ -707,31 +713,57 @@ const corDias = (dias) => {
   return { color: C.verde, bg: C.verdeClaro };
 };
 
-const SecaoNegociacoes = ({ setToast }) => {
-  const [tarefas, setTarefas] = useState([]);
-  const [loading, setLoading] = useState(true);
+// Calcula dias em aberto a partir de uma data no formato "DD/MM/YYYY" ou similar
+const calcDiasAberto = (dataStr) => {
+  if (!dataStr) return 0;
+  // Tenta formato DD/MM/YYYY
+  const partes = dataStr.trim().split(/[\/\-]/);
+  if (partes.length < 3) return 0;
+  let dia, mes, ano;
+  if (partes[2].length === 4) {
+    // DD/MM/YYYY
+    [dia, mes, ano] = partes;
+  } else {
+    // YYYY-MM-DD
+    [ano, mes, dia] = partes;
+  }
+  const d = new Date(Number(ano), Number(mes) - 1, Number(dia));
+  if (isNaN(d.getTime())) return 0;
+  return Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+};
+
+// Atribui etapa do kanban com base nos dias em aberto
+const etapaPorDias = (dias) => {
+  if (dias >= 28) return "Etapa 5/5";
+  if (dias >= 21) return "Etapa 4/5";
+  if (dias >= 14) return "Etapa 3/5";
+  if (dias >= 7)  return "Etapa 2/5";
+  return "Etapa 1/5";
+};
+
+const SecaoNegociacoes = ({ dados, setToast }) => {
   const [abaAtiva, setAbaAtiva] = useState("cliente"); // "cliente" | "gps"
 
-  const carregar = useCallback(async () => {
-    setLoading(true);
-    try {
-      const r = await fetch("/api/get-tasks");
-      const data = await r.json();
-      setTarefas(data.tarefas || []);
-    } catch { setToast("Erro ao carregar tarefas"); }
-    finally { setLoading(false); }
-  }, [setToast]);
-
-  useEffect(() => { carregar(); }, [carregar]);
+  // Mapeia dados da planilha principal para o formato esperado pelo kanban/tabela
+  const tarefas = useMemo(() => (dados || [])
+    .filter(d => d.status === "Pendente Cliente" || d.status === "Pendente GPS")
+    .map(d => {
+      const dias = calcDiasAberto(d.inicioNeg);
+      return {
+        cr: d.cr,
+        grupo: d.grupoCliente,
+        statusReal: d.status,
+        acao: d.proximaAcao || "",
+        etapa: d.etapa || etapaPorDias(dias),
+        dias,
+        inicioNeg: d.inicioNeg,
+        ultimaAtt: d.ultimaAtt || d.dataAprov || "",
+        tipo: d.tipo,
+      };
+    }), [dados]);
 
   const pendCliente = useMemo(() => tarefas.filter(t => t.statusReal === "Pendente Cliente"), [tarefas]);
   const pendGPS     = useMemo(() => tarefas.filter(t => t.statusReal === "Pendente GPS"),     [tarefas]);
-
-  if (loading) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: C.cinzaClaro, gap: 10 }}>
-      Carregando negociações…
-    </div>
-  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -752,9 +784,6 @@ const SecaoNegociacoes = ({ setToast }) => {
             }}>{ab.label}</button>
           ))}
         </div>
-        <button onClick={carregar} style={{ marginLeft: "auto", fontSize: 12, padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.borda}`, background: "#fff", color: C.cinzaMedio, cursor: "pointer", fontFamily: "inherit" }}>
-          ↻ Atualizar
-        </button>
       </div>
 
       {/* ── ABA: PENDENTE CLIENTE — Kanban 5 etapas ── */}
@@ -762,7 +791,7 @@ const SecaoNegociacoes = ({ setToast }) => {
         pendCliente.length === 0 ? (
           <div style={{ textAlign: "center", padding: 60, color: C.cinzaClaro }}>
             <div style={{ fontWeight: 600, marginBottom: 6 }}>Nenhum CR Pendente Cliente</div>
-            <div style={{ fontSize: 13 }}>Execute o syncTarefas na planilha para atualizar.</div>
+            <div style={{ fontSize: 13 }}>Nenhum CR com status "Pendente Cliente" encontrado na planilha.</div>
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, overflowX: "auto" }}>
@@ -832,7 +861,7 @@ const SecaoNegociacoes = ({ setToast }) => {
         pendGPS.length === 0 ? (
           <div style={{ textAlign: "center", padding: 60, color: C.cinzaClaro }}>
             <div style={{ fontWeight: 600, marginBottom: 6 }}>Nenhum CR Pendente GPS</div>
-            <div style={{ fontSize: 13 }}>Execute o syncTarefas na planilha para atualizar.</div>
+            <div style={{ fontSize: 13 }}>Nenhum CR com status "Pendente GPS" encontrado na planilha.</div>
           </div>
         ) : (
           <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.borda}`, overflow: "hidden" }}>
@@ -2111,7 +2140,7 @@ export default function App() {
           ) : secao === "vencimentos" ? (
             <SecaoVencimentos dados={dados} />
           ) : secao === "negociacoes" ? (
-            <SecaoNegociacoes setToast={setToast} />
+            <SecaoNegociacoes dados={dados} setToast={setToast} />
           ) : secao === "manual" ? (
             <SecaoManual />
           ) : (
