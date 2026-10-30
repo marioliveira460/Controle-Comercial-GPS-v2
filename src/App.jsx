@@ -741,6 +741,42 @@ const etapaPorDias = (dias) => {
   return "Etapa 1/5";
 };
 
+// Calcula ação com base no mês de vigência do contrato
+// mesVigStr: "MM/YYYY", "MMM/YYYY" ou somente o mês por extenso
+const acaoPorMesVigencia = (mesVigStr) => {
+  if (!mesVigStr) return "Enviar ao cliente";
+  // Tenta extrair mês e ano — aceita "10/2026", "out/2026", "outubro/2026", "10-2026"
+  const mesesPtBr = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+  const str = mesVigStr.trim().toLowerCase();
+  let mesNum = null, anoNum = null;
+
+  const matchNumerico = str.match(/^(\d{1,2})[\/\-](\d{4})$/);
+  if (matchNumerico) {
+    mesNum = parseInt(matchNumerico[1], 10);
+    anoNum = parseInt(matchNumerico[2], 10);
+  } else {
+    const matchTexto = str.match(/^([a-zç]+)[\/\-\s](\d{4})$/);
+    if (matchTexto) {
+      const abbr = matchTexto[1].slice(0, 3);
+      mesNum = mesesPtBr.indexOf(abbr) + 1;
+      anoNum = parseInt(matchTexto[2], 10);
+    }
+  }
+
+  if (!mesNum || !anoNum) return "Enviar ao cliente";
+
+  const hoje = new Date();
+  const anoAtual = hoje.getFullYear();
+  const mesAtual = hoje.getMonth() + 1; // 1-12
+
+  // Se o mês de vigência já passou ou é o mês atual → Enviar ao cliente
+  if (anoNum < anoAtual || (anoNum === anoAtual && mesNum <= mesAtual)) {
+    return "Enviar ao cliente";
+  }
+  // Mês de vigência ainda está no futuro → Aguardando Período de Negociação
+  return "Aguardando Período de Negociação";
+};
+
 const SecaoNegociacoes = ({ dados, setToast }) => {
   const [abaAtiva, setAbaAtiva] = useState("cliente"); // "cliente" | "gps"
 
@@ -749,16 +785,18 @@ const SecaoNegociacoes = ({ dados, setToast }) => {
     .filter(d => d.status === "Pendente Cliente" || d.status === "Pendente GPS")
     .map(d => {
       const dias = calcDiasAberto(d.inicioNeg);
+      const acao = d.proximaAcao || acaoPorMesVigencia(d.mesVigencia);
       return {
         cr: d.cr,
         grupo: d.grupoCliente,
         statusReal: d.status,
-        acao: d.proximaAcao || "",
+        acao,
         etapa: d.etapa || etapaPorDias(dias),
         dias,
         inicioNeg: d.inicioNeg,
         ultimaAtt: d.ultimaAtt || d.dataAprov || "",
         tipo: d.tipo,
+        mesVigencia: d.mesVigencia,
       };
     }), [dados]);
 
@@ -875,7 +913,10 @@ const SecaoNegociacoes = ({ dados, setToast }) => {
               </thead>
               <tbody>
                 {pendGPS.map((t, i) => {
-                  const enviar = t.acao === "Enviar ao cliente";
+                  const enviar   = t.acao === "Enviar ao cliente";
+                  const aguardar = t.acao === "Aguardando Período de Negociação";
+                  const acaoBg  = enviar ? C.verdeClaro  : aguardar ? "#f0f0f5" : C.azulClaro;
+                  const acaoCor = enviar ? C.verde       : aguardar ? C.cinzaMedio : C.azul;
                   return (
                     <tr key={t.cr} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
                       <td style={{ padding: "9px 14px", fontFamily: "monospace", color: C.cinzaMedio, fontSize: 11 }}>{t.cr}</td>
@@ -894,9 +935,8 @@ const SecaoNegociacoes = ({ dados, setToast }) => {
                       <td style={{ padding: "9px 14px" }}>
                         <span style={{
                           display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                          background: enviar ? C.verdeClaro : C.azulClaro,
-                          color: enviar ? C.verde : C.azul,
-                          border: `1px solid ${enviar ? C.verde : C.azul}33`,
+                          background: acaoBg, color: acaoCor,
+                          border: `1px solid ${acaoCor}33`,
                         }}>
                           {t.acao || "—"}
                         </span>
