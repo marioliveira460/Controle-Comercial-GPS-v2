@@ -743,37 +743,42 @@ const etapaPorDias = (dias) => {
 
 // Calcula ação com base no mês de vigência do contrato
 // mesVigStr: "MM/YYYY", "MMM/YYYY" ou somente o mês por extenso
-const acaoPorMesVigencia = (mesVigStr) => {
-  if (!mesVigStr) return "Enviar ao cliente";
-  // Tenta extrair mês e ano — aceita "10/2026", "out/2026", "outubro/2026", "10-2026"
-  const mesesPtBr = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
-  const str = mesVigStr.trim().toLowerCase();
+const acaoPorMesVigencia = (mesVig) => {
+  if (!mesVig) return "Enviar ao cliente";
+  const hoje = new Date();
+  const anoAtual = hoje.getFullYear();
+  const mesAtual = hoje.getMonth() + 1; // 1-12
   let mesNum = null, anoNum = null;
 
-  const matchNumerico = str.match(/^(\d{1,2})[\/\-](\d{4})$/);
-  if (matchNumerico) {
-    mesNum = parseInt(matchNumerico[1], 10);
-    anoNum = parseInt(matchNumerico[2], 10);
+  // Objeto Date (Google Sheets pode retornar célula de data como Date)
+  if (mesVig instanceof Date) {
+    if (isNaN(mesVig.getTime())) return "Enviar ao cliente";
+    mesNum = mesVig.getMonth() + 1;
+    anoNum = mesVig.getFullYear();
   } else {
-    const matchTexto = str.match(/^([a-zç]+)[\/\-\s](\d{4})$/);
-    if (matchTexto) {
-      const abbr = matchTexto[1].slice(0, 3);
-      mesNum = mesesPtBr.indexOf(abbr) + 1;
-      anoNum = parseInt(matchTexto[2], 10);
+    // String — aceita "10/2026", "out/2026", "outubro/2026", "10-2026"
+    const mesesPtBr = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+    const str = String(mesVig).trim().toLowerCase();
+    const matchNumerico = str.match(/^(\d{1,2})[\/\-](\d{4})$/);
+    if (matchNumerico) {
+      mesNum = parseInt(matchNumerico[1], 10);
+      anoNum = parseInt(matchNumerico[2], 10);
+    } else {
+      const matchTexto = str.match(/^([a-zçã]+)[\/\-\s](\d{4})$/);
+      if (matchTexto) {
+        const abbr = matchTexto[1].slice(0, 3);
+        mesNum = mesesPtBr.indexOf(abbr) + 1;
+        anoNum = parseInt(matchTexto[2], 10);
+      }
     }
   }
 
   if (!mesNum || !anoNum) return "Enviar ao cliente";
-
-  const hoje = new Date();
-  const anoAtual = hoje.getFullYear();
-  const mesAtual = hoje.getMonth() + 1; // 1-12
-
-  // Se o mês de vigência já passou ou é o mês atual → Enviar ao cliente
+  // Mês vigência atual ou passado → Enviar ao cliente
   if (anoNum < anoAtual || (anoNum === anoAtual && mesNum <= mesAtual)) {
     return "Enviar ao cliente";
   }
-  // Mês de vigência ainda está no futuro → Aguardando Período de Negociação
+  // Mês vigência futuro → Aguardando Período de Negociação
   return "Aguardando Período de Negociação";
 };
 
@@ -906,7 +911,7 @@ const SecaoNegociacoes = ({ dados, setToast }) => {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr style={{ background: "#f8fafc" }}>
-                  {["CR","Grupo Cliente","Tipo de Negócio","Ação","Início Negociação","Última Atualização"].map(h => (
+                  {["CR","Grupo Cliente","Tipo de Negócio","Próxima Ação"].map(h => (
                     <th key={h} style={{ padding: "9px 14px", textAlign: "left", color: C.cinzaClaro, fontWeight: 600, fontSize: 11, borderBottom: `1px solid ${C.borda}`, whiteSpace: "nowrap" }}>{h}</th>
                   ))}
                 </tr>
@@ -941,8 +946,6 @@ const SecaoNegociacoes = ({ dados, setToast }) => {
                           {t.acao || "—"}
                         </span>
                       </td>
-                      <td style={{ padding: "9px 14px", color: C.cinzaMedio, whiteSpace: "nowrap" }}>{t.inicioNeg || "—"}</td>
-                      <td style={{ padding: "9px 14px", color: C.cinzaClaro, whiteSpace: "nowrap" }}>{t.ultimaAtt || "—"}</td>
                     </tr>
                   );
                 })}
