@@ -173,12 +173,8 @@ const parseGerencial = (values) => {
     aplicado: r[iAplic] ?? "",
     valorAtual: r[iValorAtual] ?? "",
     valorFinal: r[iValorFinal] ?? "",
-    inicioNeg: r[iInicio] instanceof Date
-      ? `${String(r[iInicio].getDate()).padStart(2,"0")}/${String(r[iInicio].getMonth()+1).padStart(2,"0")}/${r[iInicio].getFullYear()}`
-      : (r[iInicio] ?? ""),
-    dataAprov: r[iAprov] instanceof Date
-      ? `${String(r[iAprov].getDate()).padStart(2,"0")}/${String(r[iAprov].getMonth()+1).padStart(2,"0")}/${r[iAprov].getFullYear()}`
-      : (r[iAprov] ?? ""),
+    inicioNeg: r[iInicio] ?? "",
+    dataAprov: r[iAprov] ?? "",
     info: r[iInfo] || "",
     obs: r[iObs] || "",
     indiceContratual: r[iIndice] || "",
@@ -717,22 +713,18 @@ const corDias = (dias) => {
   return { color: C.verde, bg: C.verdeClaro };
 };
 
-// Calcula dias em aberto a partir de uma data (string DD/MM/YYYY, YYYY-MM-DD, ou objeto Date)
+// Calcula dias em aberto a partir de uma data no formato "DD/MM/YYYY" ou similar
 const calcDiasAberto = (dataStr) => {
   if (!dataStr) return 0;
-  // Se vier como objeto Date do Google Sheets
-  if (dataStr instanceof Date) {
-    if (isNaN(dataStr.getTime())) return 0;
-    return Math.floor((Date.now() - dataStr.getTime()) / (1000 * 60 * 60 * 24));
-  }
-  const s = String(dataStr).trim();
-  if (!s) return 0;
-  const partes = s.split(/[\/\-]/);
+  // Tenta formato DD/MM/YYYY
+  const partes = dataStr.trim().split(/[\/\-]/);
   if (partes.length < 3) return 0;
   let dia, mes, ano;
   if (partes[2].length === 4) {
+    // DD/MM/YYYY
     [dia, mes, ano] = partes;
   } else {
+    // YYYY-MM-DD
     [ano, mes, dia] = partes;
   }
   const d = new Date(Number(ano), Number(mes) - 1, Number(dia));
@@ -788,17 +780,17 @@ const acaoPorMesVigencia = (mesVigStr) => {
 const SecaoNegociacoes = ({ dados, setToast }) => {
   const [abaAtiva, setAbaAtiva] = useState("cliente"); // "cliente" | "gps"
 
-  // Mapeia dados da planilha principal para o formato esperado
+  // Mapeia dados da planilha principal para o formato esperado pelo kanban/tabela
   const tarefas = useMemo(() => (dados || [])
     .filter(d => d.status === "Pendente Cliente" || d.status === "Pendente GPS")
     .map(d => {
       const dias = calcDiasAberto(d.inicioNeg);
-      const proxAcao = d.proximaAcao || acaoPorMesVigencia(d.mesVigencia);
+      const acao = d.proximaAcao || acaoPorMesVigencia(d.mesVigencia);
       return {
         cr: d.cr,
         grupo: d.grupoCliente,
         statusReal: d.status,
-        proxAcao,
+        acao,
         etapa: d.etapa || etapaPorDias(dias),
         dias,
         inicioNeg: d.inicioNeg,
@@ -811,22 +803,10 @@ const SecaoNegociacoes = ({ dados, setToast }) => {
   const pendCliente = useMemo(() => tarefas.filter(t => t.statusReal === "Pendente Cliente"), [tarefas]);
   const pendGPS     = useMemo(() => tarefas.filter(t => t.statusReal === "Pendente GPS"),     [tarefas]);
 
-  // Agrupamento por cliente para a tabela "Retornos Pendentes do Cliente"
-  const gruposCliente = useMemo(() => {
-    const map = {};
-    pendCliente.forEach(t => {
-      const g = t.grupo || "Sem Grupo";
-      if (!map[g]) map[g] = { grupo: g, crs: [], maxDias: 0, proxAcao: t.proxAcao };
-      map[g].crs.push(t);
-      if (t.dias > map[g].maxDias) map[g].maxDias = t.dias;
-    });
-    return Object.values(map).sort((a, b) => b.maxDias - a.maxDias);
-  }, [pendCliente]);
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-      {/* Cabeçalho com abas */}
+      {/* Cabeçalho */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 6 }}>
           {[
@@ -844,7 +824,7 @@ const SecaoNegociacoes = ({ dados, setToast }) => {
         </div>
       </div>
 
-      {/* ── ABA: PENDENTE CLIENTE — Tabela agrupada por cliente ── */}
+      {/* ── ABA: PENDENTE CLIENTE — Kanban 5 etapas ── */}
       {abaAtiva === "cliente" && (
         pendCliente.length === 0 ? (
           <div style={{ textAlign: "center", padding: 60, color: C.cinzaClaro }}>
@@ -852,76 +832,69 @@ const SecaoNegociacoes = ({ dados, setToast }) => {
             <div style={{ fontSize: 13 }}>Nenhum CR com status "Pendente Cliente" encontrado na planilha.</div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-            {/* Subtítulo */}
-            <div style={{
-              padding: "8px 0 10px",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
-              color: C.laranja, textTransform: "uppercase",
-              borderBottom: `2px solid ${C.laranja}`,
-              marginBottom: 0,
-            }}>
-              Retornos Pendentes do Cliente
-            </div>
-
-            {/* Tabela */}
-            <div style={{ background: "#fff", borderRadius: "0 0 10px 10px", border: `1px solid ${C.borda}`, borderTop: "none", overflow: "hidden" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead>
-                  <tr style={{ background: "#f8fafc" }}>
-                    {["Grupo de Cliente", "CRs Pendentes", "Próxima Ação", "Dias Máx. em Aberto"].map(h => (
-                      <th key={h} style={{ padding: "9px 14px", textAlign: "left", color: C.cinzaClaro, fontWeight: 600, fontSize: 11, borderBottom: `1px solid ${C.borda}`, whiteSpace: "nowrap" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {gruposCliente.map((g, i) => {
-                    const enviar   = g.proxAcao === "Enviar ao cliente";
-                    const aguardar = g.proxAcao === "Aguardando Período de Negociação";
-                    const acaoBg  = enviar ? C.verdeClaro  : aguardar ? "#f0f0f5" : C.azulClaro;
-                    const acaoCor = enviar ? C.verde       : aguardar ? C.cinzaMedio : C.azul;
-                    const dCor    = corDias(g.maxDias);
-                    return (
-                      <tr key={g.grupo} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                        <td style={{ padding: "10px 14px", color: C.cinzaEscuro, fontWeight: 600 }}>{g.grupo}</td>
-                        <td style={{ padding: "10px 14px" }}>
-                          <span style={{
-                            display: "inline-flex", alignItems: "center", justifyContent: "center",
-                            minWidth: 26, height: 26, borderRadius: 13,
-                            background: C.laranjaClaro, color: C.laranja,
-                            fontSize: 12, fontWeight: 800, padding: "0 8px",
-                          }}>
-                            {g.crs.length}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, overflowX: "auto" }}>
+            {ETAPAS_KANBAN.map(col => {
+              const cards = pendCliente.filter(t => t.etapa === col.etapa);
+              return (
+                <div key={col.etapa} style={{ display: "flex", flexDirection: "column", minWidth: 160 }}>
+                  {/* Header */}
+                  <div style={{
+                    padding: "7px 10px", borderRadius: "8px 8px 0 0",
+                    background: col.bg, border: `1px solid ${col.cor}33`, borderBottom: "none",
+                    display: "flex", alignItems: "center", gap: 6,
+                  }}>
+                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: col.cor, flexShrink: 0 }} />
+                    <span style={{ fontSize: 10, fontWeight: 700, color: col.cor, lineHeight: 1.3 }}>{col.label}</span>
+                    <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: col.cor }}>{cards.length}</span>
+                  </div>
+                  {/* Cards */}
+                  <div style={{
+                    flex: 1, padding: 6, background: "#f5f8fa",
+                    border: `1px solid ${col.cor}22`, borderRadius: "0 0 8px 8px",
+                    display: "flex", flexDirection: "column", gap: 6, minHeight: 100,
+                  }}>
+                    {cards.map(t => {
+                      const dCor = corDias(t.dias);
+                      return (
+                        <div key={t.cr} style={{
+                          background: "#fff", borderRadius: 7, padding: "8px 10px",
+                          border: `1px solid ${C.borda}`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                          display: "flex", flexDirection: "column", gap: 5, alignItems: "center", textAlign: "center",
+                        }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: C.azul, fontFamily: "monospace", background: C.azulClaro, padding: "1px 5px", borderRadius: 3 }}>
+                            {t.cr}
                           </span>
-                        </td>
-                        <td style={{ padding: "10px 14px" }}>
-                          <span style={{
-                            display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                            background: acaoBg, color: acaoCor,
-                            border: `1px solid ${acaoCor}33`,
+                          <div style={{ fontSize: 11, color: C.cinzaEscuro, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }} title={t.grupo}>
+                            {t.grupo}
+                          </div>
+                          {t.tipo && (
+                            <div style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: TIPO_BG[t.tipo] || C.azulClaro, color: TIPO_COR[t.tipo] || C.azul, fontWeight: 700 }}>
+                              {t.tipo}
+                            </div>
+                          )}
+                          <div style={{
+                            fontSize: 10, padding: "2px 6px", borderRadius: 4,
+                            background: dCor.bg, color: dCor.color, fontWeight: 700,
                           }}>
-                            {g.proxAcao || "—"}
-                          </span>
-                        </td>
-                        <td style={{ padding: "10px 14px" }}>
-                          <span style={{
-                            display: "inline-block", padding: "3px 8px", borderRadius: 4, fontSize: 12, fontWeight: 700,
-                            background: dCor.bg, color: dCor.color,
-                          }}>
-                            {g.maxDias} dias
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                            {t.dias}d em aberto
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {cards.length === 0 && (
+                      <div style={{ textAlign: "center", padding: "16px 8px", color: C.borda, fontSize: 10, border: `1.5px dashed ${C.borda}`, borderRadius: 6 }}>
+                        Sem CRs
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )
       )}
 
-      {/* ── ABA: PENDENTE GPS — Lista com próxima ação ── */}
+      {/* ── ABA: PENDENTE GPS — Lista com ação ── */}
       {abaAtiva === "gps" && (
         pendGPS.length === 0 ? (
           <div style={{ textAlign: "center", padding: 60, color: C.cinzaClaro }}>
@@ -929,65 +902,52 @@ const SecaoNegociacoes = ({ dados, setToast }) => {
             <div style={{ fontSize: 13 }}>Nenhum CR com status "Pendente GPS" encontrado na planilha.</div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-            {/* Subtítulo */}
-            <div style={{
-              padding: "8px 0 10px",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
-              color: C.azul, textTransform: "uppercase",
-              borderBottom: `2px solid ${C.azul}`,
-              marginBottom: 0,
-            }}>
-              Ações Pendentes GPS
-            </div>
-
-            <div style={{ background: "#fff", borderRadius: "0 0 10px 10px", border: `1px solid ${C.borda}`, borderTop: "none", overflow: "hidden" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead>
-                  <tr style={{ background: "#f8fafc" }}>
-                    {["CR","Grupo Cliente","Tipo de Negócio","Próxima Ação","Início Negociação","Última Atualização"].map(h => (
-                      <th key={h} style={{ padding: "9px 14px", textAlign: "left", color: C.cinzaClaro, fontWeight: 600, fontSize: 11, borderBottom: `1px solid ${C.borda}`, whiteSpace: "nowrap" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendGPS.map((t, i) => {
-                    const enviar   = t.proxAcao === "Enviar ao cliente";
-                    const aguardar = t.proxAcao === "Aguardando Período de Negociação";
-                    const acaoBg  = enviar ? C.verdeClaro  : aguardar ? "#f0f0f5" : C.azulClaro;
-                    const acaoCor = enviar ? C.verde       : aguardar ? C.cinzaMedio : C.azul;
-                    return (
-                      <tr key={t.cr} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                        <td style={{ padding: "9px 14px", fontFamily: "monospace", color: C.cinzaMedio, fontSize: 11 }}>{t.cr}</td>
-                        <td style={{ padding: "9px 14px", color: C.cinzaEscuro, fontWeight: 500 }}>{t.grupo}</td>
-                        <td style={{ padding: "9px 14px" }}>
-                          {t.tipo ? (
-                            <span style={{
-                              display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700,
-                              background: TIPO_BG[t.tipo] || C.azulClaro,
-                              color: TIPO_COR[t.tipo] || C.azul,
-                            }}>
-                              {t.tipo}
-                            </span>
-                          ) : <span style={{ color: C.cinzaClaro }}>—</span>}
-                        </td>
-                        <td style={{ padding: "9px 14px" }}>
+          <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.borda}`, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: "#f8fafc" }}>
+                  {["CR","Grupo Cliente","Tipo de Negócio","Ação","Início Negociação","Última Atualização"].map(h => (
+                    <th key={h} style={{ padding: "9px 14px", textAlign: "left", color: C.cinzaClaro, fontWeight: 600, fontSize: 11, borderBottom: `1px solid ${C.borda}`, whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pendGPS.map((t, i) => {
+                  const enviar   = t.acao === "Enviar ao cliente";
+                  const aguardar = t.acao === "Aguardando Período de Negociação";
+                  const acaoBg  = enviar ? C.verdeClaro  : aguardar ? "#f0f0f5" : C.azulClaro;
+                  const acaoCor = enviar ? C.verde       : aguardar ? C.cinzaMedio : C.azul;
+                  return (
+                    <tr key={t.cr} style={{ borderBottom: `1px solid #f0f4f7`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                      <td style={{ padding: "9px 14px", fontFamily: "monospace", color: C.cinzaMedio, fontSize: 11 }}>{t.cr}</td>
+                      <td style={{ padding: "9px 14px", color: C.cinzaEscuro, fontWeight: 500 }}>{t.grupo}</td>
+                      <td style={{ padding: "9px 14px" }}>
+                        {t.tipo ? (
                           <span style={{
-                            display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                            background: acaoBg, color: acaoCor,
-                            border: `1px solid ${acaoCor}33`,
+                            display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700,
+                            background: TIPO_BG[t.tipo] || C.azulClaro,
+                            color: TIPO_COR[t.tipo] || C.azul,
                           }}>
-                            {t.proxAcao || "—"}
+                            {t.tipo}
                           </span>
-                        </td>
-                        <td style={{ padding: "9px 14px", color: C.cinzaMedio, whiteSpace: "nowrap" }}>{t.inicioNeg instanceof Date ? t.inicioNeg.toLocaleDateString("pt-BR") : (t.inicioNeg || "—")}</td>
-                        <td style={{ padding: "9px 14px", color: C.cinzaClaro, whiteSpace: "nowrap" }}>{t.ultimaAtt instanceof Date ? t.ultimaAtt.toLocaleDateString("pt-BR") : (t.ultimaAtt || "—")}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        ) : <span style={{ color: C.cinzaClaro }}>—</span>}
+                      </td>
+                      <td style={{ padding: "9px 14px" }}>
+                        <span style={{
+                          display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+                          background: acaoBg, color: acaoCor,
+                          border: `1px solid ${acaoCor}33`,
+                        }}>
+                          {t.acao || "—"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "9px 14px", color: C.cinzaMedio, whiteSpace: "nowrap" }}>{t.inicioNeg || "—"}</td>
+                      <td style={{ padding: "9px 14px", color: C.cinzaClaro, whiteSpace: "nowrap" }}>{t.ultimaAtt || "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )
       )}
