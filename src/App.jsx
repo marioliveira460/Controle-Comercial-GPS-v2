@@ -962,15 +962,39 @@ const SecaoNegociacoes = ({ dados, setToast }) => {
 const MANUAL_ABAS = [
   {
     icon: "📋",
-    titulo: "Gestão de Reajuste",
+    titulo: "Gestão de Reajustes",
     cor: "#006080",
     corBg: "#e6f4f8",
-    descricao: "Visão geral de todos os Contratos de Reajuste (CRs) da carteira.",
+    descricao: "Visão principal da carteira — acompanhe o andamento de todas as negociações em um único ambiente.",
     topicos: [
-      { label: "Filtros", texto: "Use os filtros no topo para buscar por mês de vigência, gerente, status ou tipo de CR. Todos os filtros funcionam em conjunto." },
-      { label: "Cards de grupo", texto: "Cada grupo de cliente exibe um resumo com total de contratos, valor atual somado, valor final e percentual médio de reajuste." },
-      { label: "Tabela de CRs", texto: "Dentro de cada grupo você encontra os CRs individuais com status, tipo, valores e percentuais. Clique nas células de status ou tipo para editar diretamente." },
-      { label: "Edição inline", texto: "Campos como Status Real, Tipo de Negócio, Devido (%) e Aplicado (%) podem ser alterados clicando na célula — a alteração salva automaticamente na planilha." },
+      {
+        label: "Objetivo",
+        texto: "Esta é a tela central da ferramenta. Consolida todos os contratos com reajustes concluídos, em negociação ou previstos até dezembro. O objetivo é oferecer uma visão geral da carteira e do estágio atual de cada negociação.",
+      },
+      {
+        label: "Total de CRs",
+        texto: "Indicador no topo que mostra o volume total de contratos monitorados, distribuídos entre Concluídos, Pendente Cliente, Pendente GPS e Negócio Perdido. Permite identificar rapidamente a situação geral da carteira.",
+      },
+      {
+        label: "Tipo de Negociação",
+        texto: "Classifica os contratos conforme o tipo: Reajuste, Dissídio, Reequilíbrio Econômico-Financeiro, Renovação, Novo Contrato ou Negócio Perdido.",
+      },
+      {
+        label: "Negociações Críticas",
+        texto: "Alerta gerencial com os clientes que permanecem há mais tempo em negociação. Permite priorização das ações e eventual envolvimento de gestores.",
+      },
+      {
+        label: "% Devido x % Aplicado",
+        texto: "% Devido é o percentual previsto contratualmente. % Aplicado é o percentual efetivamente negociado e implantado. A diferença entre os dois revela onde houve concessões comerciais ou negociações específicas.",
+      },
+      {
+        label: "Status das negociações",
+        texto: "Concluído: reajuste aprovado e implantado. Pendente Cliente: aguardando retorno ou aprovação do cliente. Pendente GPS: depende de ação interna antes do envio (ex: aguardando data, divulgação de CCT, aprovações internas). Negócio Perdido: situações sem êxito na negociação.",
+      },
+      {
+        label: "Edição inline",
+        texto: "Campos como Status Real, Tipo de Negócio, % Devido e % Aplicado podem ser alterados clicando na célula. A alteração salva automaticamente na planilha.",
+      },
     ],
   },
   {
@@ -978,12 +1002,28 @@ const MANUAL_ABAS = [
     titulo: "Controle Econômico",
     cor: "#0a8a5c",
     corBg: "#e6f7f1",
-    descricao: "Análise financeira da carteira: valores de contrato, reajustes e ganho estimado.",
+    descricao: "Impacto financeiro dos reajustes — traduz as negociações em resultado econômico para a empresa.",
     topicos: [
-      { label: "KPIs no topo", texto: "Exibem o total do Valor Atual somado, o Valor Final projetado, o ganho estimado (somente CRs concluídos) e o percentual médio de reajuste da carteira." },
-      { label: "Ganho Estimado", texto: "Calculado apenas sobre CRs que possuem Data de Aprovação preenchida, ou seja, contratos efetivamente concluídos. É a diferença entre Valor Final e Valor Atual." },
-      { label: "Cards por grupo", texto: "Mostram o ganho por grupo também considerando somente os CRs concluídos. Grupos sem CRs concluídos exibem '—'." },
-      { label: "Tabela detalhada", texto: "Exibe o ganho individual de cada CR sempre que os dois valores (atual e final) estiverem preenchidos, independente do status." },
+      {
+        label: "Objetivo",
+        texto: "Apresenta os impactos financeiros gerados pelos reajustes. O foco é traduzir as negociações em resultado econômico concreto.",
+      },
+      {
+        label: "Valor Total dos Contratos",
+        texto: "Valor consolidado da carteira atualmente sob gestão.",
+      },
+      {
+        label: "Valor Final / Pleito",
+        texto: "Valor projetado após a aplicação dos reajustes negociados.",
+      },
+      {
+        label: "Ganho Estimado",
+        texto: "Demonstra o ganho financeiro obtido pelos reajustes já concluídos (CRs com Data de Aprovação preenchida). É a diferença entre Valor Final e Valor Atual — evidencia o resultado efetivo gerado pelas negociações.",
+      },
+      {
+        label: "Tabela por cliente",
+        texto: "Contrato Atual: valor vigente antes da negociação. Valor Final: valor após aprovação do reajuste. Ganho: incremento financeiro gerado. Reajuste %: percentual efetivamente aplicado.",
+      },
     ],
   },
   {
@@ -991,11 +1031,24 @@ const MANUAL_ABAS = [
     titulo: "Visão do Cliente",
     cor: "#6c3fb5",
     corBg: "#f0ebfb",
-    descricao: "Resumo executivo por cliente, ideal para reuniões e acompanhamento de negociações.",
+    descricao: "Rastreabilidade completa por cliente — histórico, evolução e gestão visual de riscos.",
     topicos: [
-      { label: "Cards por cliente", texto: "Cada card resume os CRs daquele cliente com status geral, tipos de negócio envolvidos e evolução de valores." },
-      { label: "Observações", texto: "Campo de texto livre por CR para registrar pontos de atenção, histórico de negociação ou informações relevantes. As observações são salvas diretamente na planilha." },
-      { label: "Como editar", texto: "Clique no ícone de lápis ao lado do campo de observação, escreva o texto e confirme. A informação fica salva para todos que acessarem o dashboard." },
+      {
+        label: "Objetivo",
+        texto: "Consolida todas as informações relevantes de cada cliente em um único local. Permite acompanhar histórico, evolução e contexto das negociações.",
+      },
+      {
+        label: "Cards por cliente",
+        texto: "Cada card apresenta: total de contratos do cliente, quantidade concluída, negociações em aberto e tempo médio de conclusão. Nas negociações abertas, também mostra há quantos dias estão pendentes.",
+      },
+      {
+        label: "Semáforo de criticidade",
+        texto: "🟢 Verde (até 30 dias): negociação dentro do prazo saudável. 🟡 Amarelo (30 a 59 dias): requer atenção e acompanhamento mais próximo. 🔴 Vermelho (acima de 60 dias): negociação crítica — toda a identificação visual do cliente fica em vermelho para facilitar a priorização.",
+      },
+      {
+        label: "Campo de Observações",
+        texto: "Registre informações importantes das tratativas: acordos realizados, justificativas de desconto, solicitações dos clientes, envolvimento da gestão, reequilíbrios e demais particularidades. Cria um histórico estruturado e reduz dependência de e-mails ou alinhamentos informais. Clique no ícone de lápis para editar — a informação fica salva para todos que acessarem o dashboard.",
+      },
     ],
   },
   {
@@ -1003,12 +1056,28 @@ const MANUAL_ABAS = [
     titulo: "Vencimentos Contratuais",
     cor: "#c96b00",
     corBg: "#fef3e2",
-    descricao: "Controle de datas de vencimento dos contratos com semáforo de urgência.",
+    descricao: "Gestão preventiva — antecipe riscos e planeje renovações com antecedência.",
     topicos: [
-      { label: "Semáforo", texto: "Cada contrato recebe uma cor: Vencido (passou da data), Crítico (vence em até 90 dias), Atenção (91 a 180 dias) e Ok (mais de 180 dias). Isso orienta a prioridade de ação." },
-      { label: "Banner de alertas", texto: "Exibe em destaque os contratos que precisam de ação nos próximos 180 dias, agrupados em três colunas para facilitar a leitura." },
-      { label: "Filtros rápidos", texto: "Botões Vencido, Crítico, Atenção e Ok filtram a lista de contratos. É possível combinar com a busca por nome do cliente." },
-      { label: "Alerta de renovação", texto: "Quando o mês de reajuste cai no mesmo ano do vencimento do contrato, o sistema sugere fazer a renovação e o reajuste juntos. Caso contrário, alerta com 6 meses de antecedência para envio da carta de renovação." },
+      {
+        label: "Objetivo",
+        texto: "Visão preventiva dos vencimentos contratuais. Transforma a gestão de contratos de reativa para preventiva, permitindo antecipação dos riscos e melhor planejamento das negociações.",
+      },
+      {
+        label: "Alerta dos próximos 180 dias",
+        texto: "A ferramenta identifica automaticamente todos os contratos com vencimento nos próximos 180 dias e os destaca no topo da tela para atuação prioritária.",
+      },
+      {
+        label: "Semáforo de vencimentos",
+        texto: "🟢 OK: prazo confortável para atuação. 🟡 Atenção: contrato se aproximando do vencimento. 🔴 Crítico: próximo ao vencimento — ação imediata necessária. Vencido: passou da data de vencimento.",
+      },
+      {
+        label: "Reajuste e renovação juntos",
+        texto: "Quando o ano de renovação contratual coincide com o período de reajuste, a ferramenta gera automaticamente uma recomendação para tratar os dois na mesma negociação. Reduz retrabalho, melhora a experiência do cliente e torna o processo mais eficiente.",
+      },
+      {
+        label: "Filtros rápidos",
+        texto: "Botões Vencido, Crítico, Atenção e Ok filtram a lista de contratos. É possível combinar com a busca por nome do cliente.",
+      },
     ],
   },
   {
@@ -1016,12 +1085,32 @@ const MANUAL_ABAS = [
     titulo: "Matriz de Reajuste",
     cor: "#007fa3",
     corBg: "#e6f4f8",
-    descricao: "Referência técnica dos contratos: índices, datas-base, sindicatos e cláusulas.",
+    descricao: "Base de inteligência contratual — todas as regras de cálculo e diretrizes em um único lugar.",
     topicos: [
-      { label: "Resumo de Diretrizes", texto: "Card no topo mostra quantos CRs utilizam cada índice contratual (ex: 100% Dissídio, 70% CCT e 30% IPCA). Clique em um ou mais índices para filtrar a tabela abaixo." },
-      { label: "Filtro por índice", texto: "Seleção múltipla — escolha um ou mais índices para ver somente os grupos e CRs que utilizam aquela diretriz de reajuste." },
-      { label: "Grupos expansíveis", texto: "Os contratos ficam organizados por grupo de cliente. Clique no cabeçalho do grupo para expandir ou recolher. Use 'Expandir todos' para ver tudo de uma vez." },
-      { label: "Colunas da tabela", texto: "CR, Descrição, Mês de Reajuste, Índice Contratual, Data Base CCT, Cláusula de Produtividade e Sindicato. Esses dados vêm diretamente da planilha Gerencial." },
+      {
+        label: "Objetivo",
+        texto: "Centraliza todas as regras de cálculo e diretrizes dos contratos em um único local. Antes da ferramenta, essas informações ficavam distribuídas entre contratos, pastas, planilhas e e-mails.",
+      },
+      {
+        label: "Resumo de Diretrizes",
+        texto: "Card no topo mostra o perfil da carteira por tipo de índice (ex: 100% Dissídio, CCT + IPCA, CCT + IGPM, IPCA Integral, INPC, composições específicas). Clique em um índice para filtrar a tabela abaixo.",
+      },
+      {
+        label: "Índice Contratual",
+        texto: "Mostra qual índice deve ser utilizado e qual a participação de cada indicador na composição do reajuste.",
+      },
+      {
+        label: "Sindicato e Data-Base",
+        texto: "Permite identificar rapidamente qual sindicato está vinculado ao contrato e facilita o acompanhamento das convenções coletivas e o planejamento dos reajustes futuros.",
+      },
+      {
+        label: "Cláusulas Especiais",
+        texto: "Consolida cláusulas específicas que impactam o cálculo. Exemplo: o contrato da Novelis possui cláusula de produtividade — após a aplicação do reajuste, é necessário aplicar um desconto previamente acordado.",
+      },
+      {
+        label: "Grupos expansíveis",
+        texto: "Os contratos ficam organizados por grupo de cliente. Clique no cabeçalho do grupo para expandir ou recolher. Use 'Expandir todos' para ver tudo de uma vez.",
+      },
     ],
   },
 ];
